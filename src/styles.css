@@ -1,0 +1,26 @@
+/* Mismo estilo que Excelsior RPG: negro con degradado rosa → morado → violeta. */
+:root {
+  --bg: #0b0710;
+  --card: #15101d;
+  --line: #2a2036;
+  --text: #ffffff;
+  --muted: #b9adc9;
+  --accent: linear-gradient(90deg, #ff4fa3, #a54dff, #6c5cff);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.page { max-width: 720px; margin: 0 auto; padding: 48px 16px; display: grid; gap: 32px; }
+h1 {
+  margin: 0; font-size: 2rem;
+  background: var(--accent); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+h2 { font-size: 1rem; margin: 0 0 8px; }
+p { margin: 0; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 4px; }
+.grid { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
