@@ -457,3 +457,20 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
 .apkg-preview fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
 .apkg-decks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 180px; overflow: auto; }
 .apkg-decks li { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
+
+/* Nivel de exigencia */
+.level-picker { display: grid; gap: 8px; }
+.level-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.level-options button {
+  display: grid; gap: 2px; text-align: left; padding: 10px 14px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); transition: border-color 0.15s, background 0.15s;
+}
+.level-options button:hover { border-color: color-mix(in srgb, var(--spine) 45%, var(--line)); }
+.level-options button[aria-checked='true'] {
+  border-color: var(--spine); background: color-mix(in srgb, var(--spine) 14%, var(--surface));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--spine) 18%, transparent);
+}
+.level-options strong { font-size: 16px; }
+.level-options span { color: var(--muted); font-size: 14px; line-height: 1.3; }
+.level-options .level-meta { font: 500 12px var(--mono); color: color-mix(in srgb, var(--spine) 55%, white); margin-top: 4px; }
+@media (max-width: 760px) { .level-options .level-hint { display: none; } .level-options button { padding: 8px 10px; } .level-options strong { font-size: 15px; } }

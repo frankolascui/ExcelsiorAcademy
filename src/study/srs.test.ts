@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rating, State, type Grade } from 'ts-fsrs';
-import { answer, buildQueue, countsFor, formatInterval, parseCardLines, previewIntervals, requeueIndex, dueLabel, sessionSummary, interleave } from './srs';
+import { answer, buildQueue, countsFor, formatInterval, parseCardLines, previewIntervals, requeueIndex, dueLabel, sessionSummary, interleave, newRoom } from './srs';
 import type { CardRow } from './types';
 
 const now = new Date('2026-11-09T10:00:00Z');
@@ -94,5 +94,19 @@ describe('interleave', () => {
   });
   it('una lista vacía da una lista vacía', () => {
     expect(interleave([])).toEqual([]);
+  });
+});
+
+describe('niveles de exigencia', () => {
+  const now = new Date('2026-11-09T10:00:00Z');
+  const c = card({ state: 2, stability: 10, difficulty: 5, reps: 5, last_review: '2026-10-30T10:00:00Z', scheduled_days: 10 });
+  it('más exigencia = el siguiente repaso llega antes', () => {
+    const days = (l: 'minimo' | 'equilibrado' | 'detalle') => new Date(answer(c, Rating.Good as Grade, now, l).due).getTime();
+    expect(days('minimo')).toBeGreaterThan(days('equilibrado'));
+    expect(days('equilibrado')).toBeGreaterThan(days('detalle'));
+  });
+  it('calcula las nuevas que quedan hoy por asignatura', () => {
+    const room = newRoom(new Map([['a', 'minimo'], ['b', 'detalle']]), new Map([['a', 4], ['b', 40]]));
+    expect(room).toEqual(new Map([['a', 6], ['b', 0]]));
   });
 });
