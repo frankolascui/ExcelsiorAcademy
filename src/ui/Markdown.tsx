@@ -30,13 +30,14 @@ export function Markdown({ text }: { text: string }) {
   );
 }
 
-/** Índice de la hoja: solo aparece si tiene al menos dos apartados. */
+/** Índice de la hoja: plegado por defecto para que no ocupe sitio. Solo aparece si hay al menos dos apartados. */
 export function Toc({ text }: { text: string }) {
   const hs = headingsOf(text);
   if (hs.length < 2) return null;
   return (
-    <nav className="toc" aria-label="Índice de la hoja">
-      <p className="eyebrow">Índice</p>
+    <details className="toc">
+      <summary>☰ Índice <span className="muted">· {hs.length} apartados</span></summary>
+      <nav aria-label="Índice de la hoja">
       <ol>
         {hs.map((h) => (
           <li key={h.slug} className={h.level === 3 ? 'sub' : undefined}>
@@ -53,6 +54,7 @@ export function Toc({ text }: { text: string }) {
           </li>
         ))}
       </ol>
-    </nav>
+      </nav>
+    </details>
   );
 }

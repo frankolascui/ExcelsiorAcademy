@@ -139,11 +139,11 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
               <h1 className="page-title">{page.title}</h1>
               <button className="ghost small" onClick={() => go(true)}>✎ Editar</button>
             </header>
+            <Suspense fallback={null}><Toc text={page.content} /></Suspense>
             {page.content.trim()
               ? <Suspense fallback={<p className="muted">Cargando…</p>}><Markdown text={page.content} /></Suspense>
               : <p className="muted">Hoja en blanco. Pulsa Editar para escribir o pegar tus apuntes.</p>}
           </article>
-          <aside className="reader-side"><Suspense fallback={null}><Toc text={page.content} /></Suspense></aside>
         </div>
       )}
       {error && <p className="error">{error}</p>}
