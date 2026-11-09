@@ -154,18 +154,20 @@ input[type='date'] { width: auto; font-family: var(--mono); font-size: 14px; pad
 /* ---------- Archivador abierto ---------- */
 .binder-title { font-family: var(--display); font-size: 30px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
 .binder-title::before { content: ''; width: 10px; height: 30px; border-radius: 4px; background: var(--spine); box-shadow: 0 0 14px var(--spine); }
-.binder-open { display: grid; grid-template-columns: 270px 1fr; gap: 0; align-items: start; }
+.binder-open { display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; }
 .tabs { padding-right: 0; display: grid; gap: 10px; }
 .tabs ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .tab a {
   display: flex; gap: 10px; align-items: center; text-decoration: none; padding: 10px 12px;
-  border-radius: 12px 0 0 12px; border: 1px solid var(--line); border-right: 0; background: var(--surface);
-  transition: background 0.15s, padding 0.15s;
+  border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
-.tab a:hover { background: var(--surface-2); padding-left: 16px; }
+.tab a:hover { background: var(--surface-2); border-color: color-mix(in srgb, var(--spine) 35%, var(--line)); transform: translateX(2px); }
+/* Separador activo: borde del color de la asignatura y una franja a la izquierda, como un marcapáginas. */
 .tab.active a {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--spine) 30%, var(--surface)), #0e0e15);
-  border-color: color-mix(in srgb, var(--spine) 55%, var(--line)); position: relative; z-index: 1; margin-right: -1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--spine) 22%, var(--surface)), var(--surface) 85%);
+  border-color: color-mix(in srgb, var(--spine) 60%, var(--line));
+  box-shadow: inset 3px 0 0 var(--spine), 0 0 18px color-mix(in srgb, var(--spine) 18%, transparent);
 }
 .tab-num {
   flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
@@ -173,13 +175,19 @@ input[type='date'] { width: auto; font-family: var(--mono); font-size: 14px; pad
 }
 .tab.active .tab-num { background: var(--spine); color: #fff; box-shadow: 0 0 10px color-mix(in srgb, var(--spine) 60%, transparent); }
 .tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.add-tab { display: flex; gap: 6px; margin-right: 12px; }
+.add-tab { display: flex; gap: 6px; }
 .add-tab input { flex: 1; }
 .add-tab button { padding: 8px 14px; }
 .sheet-area {
-  background: linear-gradient(180deg, #0e0e15, #09090e);
-  border: 1px solid color-mix(in srgb, var(--spine) 55%, var(--line)); border-top: 3px solid var(--spine);
-  border-radius: 0 16px 16px 16px; padding: 20px; min-height: 320px;
+  position: relative; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--spine) 6%, #0e0e15), #09090e 220px);
+  border: 1px solid color-mix(in srgb, var(--spine) 30%, var(--line));
+  border-radius: 18px; padding: 22px; min-height: 320px;
+}
+/* Franja fina de color arriba, con los extremos difuminados. */
+.sheet-area::before {
+  content: ''; position: absolute; inset: 0 0 auto; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--spine) 15%, var(--spine) 85%, transparent);
 }
 .topic-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .topic-head h2 { font-family: var(--display); font-size: 26px; }
@@ -278,10 +286,9 @@ input[type='date'] { width: auto; font-family: var(--mono); font-size: 14px; pad
   .binder-open, .editor { grid-template-columns: 1fr; }
   .tabs ol { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 4px; scroll-snap-type: x mandatory; }
   .tab { flex: none; scroll-snap-align: start; max-width: 220px; }
-  .tab a { border-radius: 12px 12px 0 0; border-right: 1px solid var(--line); border-bottom: 0; }
-  .tab.active a { margin: 0 0 -1px; }
+  .tab.active a { box-shadow: inset 0 -3px 0 var(--spine); }
   .add-tab { margin: 0 0 10px; }
-  .sheet-area { border-radius: 0 0 16px 16px; padding: 16px; }
+  .sheet-area { padding: 16px; }
   .editor textarea { min-height: 45vh; }
   .md { font-size: 17px; }
   .paper { padding: 22px 16px 28px; }
@@ -407,7 +414,7 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
 .crumbs .back-btn { color: var(--fg); margin-right: 4px; }
 
 /* Repasar mezclando temas */
-.mix { margin: 14px 12px 0 0; border: 1px dashed var(--line); border-radius: 14px; padding: 10px 12px; display: grid; gap: 10px; }
+.mix { margin: 4px 0 0; border: 1px dashed var(--line); border-radius: 14px; padding: 10px 12px; display: grid; gap: 10px; }
 .mix summary { cursor: pointer; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; color: var(--muted); list-style: none; }
 .mix summary::-webkit-details-marker { display: none; }
 .mix[open] summary, .mix summary:hover { color: var(--fg); }
