@@ -86,13 +86,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   background: rgba(16, 16, 24, 0.85); font-size: 16px; display: grid; place-items: center; padding: 0;
 }
 .icon-round:hover, .icon-round[aria-pressed='true'] { border-color: var(--c2); }
-.row-actions { display: flex; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
+.row-actions { display: flex; gap: 4px; opacity: 0.7; transition: opacity 0.15s; }
 *:hover > .row-actions, .row-actions:focus-within { opacity: 1; }
-.row-actions button {
-  background: none; border: 0; color: var(--muted); border-radius: 8px; padding: 4px 8px; font-size: 14px;
-}
-.row-actions button:hover { color: var(--fg); background: var(--surface-2); }
-.row-actions button[title^='Borrar']:hover { color: var(--danger); }
 @media (hover: none) { .row-actions { opacity: 1; } }
 
 input, textarea {
@@ -178,8 +173,6 @@ input[type='date'] { width: auto; font-family: var(--mono); font-size: 14px; pad
 }
 .tab.active .tab-num { background: var(--spine); color: #fff; box-shadow: 0 0 10px color-mix(in srgb, var(--spine) 60%, transparent); }
 .tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.badge { font: 500 11px var(--mono); padding: 2px 7px; border-radius: 99px; background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-.badge.hot { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 .add-tab { display: flex; gap: 6px; margin-right: 12px; }
 .add-tab input { flex: 1; }
 .add-tab button { padding: 8px 14px; }
@@ -190,7 +183,6 @@ input[type='date'] { width: auto; font-family: var(--mono); font-size: 14px; pad
 }
 .topic-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .topic-head h2 { font-family: var(--display); font-size: 26px; }
-.exam { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
 .pages { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .page-row {
   display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px;
@@ -299,3 +291,29 @@ input[type='date'] { width: auto; font-family: var(--mono); font-size: 14px; pad
   .binder-cover { min-height: 160px; }
   .binder-name { font-size: 19px; }
 }
+
+/* ---------- Iconos y botones de icono ---------- */
+.icon { flex: none; display: block; }
+.primary, .secondary, .ghost, .button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.icon-btn {
+  width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.08s;
+}
+.icon-btn:hover { color: var(--fg); border-color: var(--c2); background: color-mix(in srgb, var(--c2) 14%, var(--surface-2)); }
+.icon-btn:active { transform: translateY(1px); }
+.icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface-2)); }
+.icon-only { padding: 0; width: 42px; height: 42px; }
+.page-name { display: inline-flex; align-items: center; gap: 8px; }
+.page-name .icon { color: var(--spine); }
+
+/* Botón «Volver» */
+.crumbs { align-items: center; }
+.back-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 9px; border-radius: 99px;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--fg); font-weight: 700; font-size: 15px;
+  transition: border-color 0.15s, transform 0.08s;
+}
+.back-btn:hover { border-color: var(--c2); }
+.back-btn:active { transform: translateX(-2px); }
+.crumbs .back-btn { color: var(--fg); margin-right: 4px; }

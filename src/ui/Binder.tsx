@@ -3,10 +3,11 @@ import {
   createPage, createTopic, deletePage, deleteTopic, listPages, listSubjects, listTopics,
   savePositions, updateTopic, type PageSummary,
 } from '../study/api';
-import { byPosition, daysUntil, nextPosition, routeToHash, swapWithNeighbour, titleFromMarkdown } from '../study/logic';
+import { byPosition, nextPosition, routeToHash, swapWithNeighbour, titleFromMarkdown } from '../study/logic';
 import type { Subject, Topic } from '../study/types';
 import { tidyText } from '../study/format';
 import { sfx } from '../sfx';
+import { Icon, IconButton } from './Icon';
 
 /** El archivador de una asignatura: separadores (temas) a la izquierda y hojas a la derecha. */
 export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: string }) {
@@ -45,7 +46,8 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
   return (
     <section className="stack" style={{ '--spine': subject?.color ?? '#a54dff' } as React.CSSProperties}>
       <nav className="crumbs">
-        <a href="#/">Estantería</a> <span>›</span> <span>{subject?.name ?? '…'}</span>
+        <a className="back-btn" href="#/" onClick={() => sfx.page()}><Icon name="left" size={16} /> Estantería</a>
+        <span className="sep">›</span> <span>{subject?.name ?? '…'}</span>
       </nav>
       <h1 className="binder-title">{subject?.name ?? '…'}</h1>
 
@@ -53,13 +55,11 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
         <aside className="tabs">
           <ol>
             {sorted.map((t, i) => {
-              const days = daysUntil(t.exam_date);
               return (
                 <li key={t.id} className={t.id === current?.id ? 'tab active' : 'tab'}>
                   <a href={routeToHash({ view: 'asignatura', subjectId, topicId: t.id })} onClick={() => t.id !== current?.id && sfx.page()}>
                     <span className="tab-num">{i + 1}</span>
                     <span className="tab-title">{t.title}</span>
-                    {days !== null && days >= 0 && <span className={days <= 3 ? 'badge hot' : 'badge'} title="Días hasta el examen">{days === 0 ? 'hoy' : `${days} d`}</span>}
                   </a>
                 </li>
               );
@@ -67,7 +67,7 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
           </ol>
           <form onSubmit={addTopic} className="add-tab">
             <input placeholder="Nuevo tema" value={newTopic} onChange={(e) => setNewTopic(e.target.value)} maxLength={120} />
-            <button className="primary">+</button>
+            <button className="primary icon-only" title="Añadir tema" aria-label="Añadir tema"><Icon name="plus" /></button>
           </form>
         </aside>
 
@@ -82,7 +82,6 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
                 const n = prompt('Nuevo nombre del tema', current.title)?.trim();
                 if (n) act(() => updateTopic(current.id, { title: n }), sfx.saved);
               }}
-              onExamDate={(d) => act(() => updateTopic(current.id, { exam_date: d || null }), sfx.place)}
               onDelete={() => {
                 if (confirm(`¿Borrar el tema "${current.title}" y todas sus hojas? No se puede deshacer.`)) {
                   act(async () => {
@@ -107,12 +106,11 @@ interface PanelProps {
   topic: Topic;
   onMove: (dir: -1 | 1) => void;
   onRename: () => void;
-  onExamDate: (date: string) => void;
   onDelete: () => void;
 }
 
 /** Las hojas de un tema, con las acciones del tema arriba. */
-function TopicPanel({ subjectId, topic, onMove, onRename, onExamDate, onDelete }: PanelProps) {
+function TopicPanel({ subjectId, topic, onMove, onRename, onDelete }: PanelProps) {
   const [pages, setPages] = useState<PageSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reload = () => listPages(topic.id).then(setPages).catch((e) => setError(e.message));
@@ -151,16 +149,12 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onExamDate, onDelete }
       <header className="topic-head">
         <h2>{topic.title}</h2>
         <div className="row-actions">
-          <button title="Subir tema" onClick={() => onMove(-1)}>↑</button>
-          <button title="Bajar tema" onClick={() => onMove(1)}>↓</button>
-          <button title="Renombrar tema" onClick={onRename}>✎</button>
-          <button title="Borrar tema" onClick={onDelete}>🗑</button>
+          <IconButton icon="up" label="Subir tema" onClick={() => onMove(-1)} />
+          <IconButton icon="down" label="Bajar tema" onClick={() => onMove(1)} />
+          <IconButton icon="edit" label="Renombrar tema" onClick={onRename} />
+          <IconButton icon="trash" label="Borrar tema" danger onClick={onDelete} />
         </div>
       </header>
-      <label className="muted exam">
-        Examen:{' '}
-        <input type="date" value={topic.exam_date ?? ''} onChange={(e) => onExamDate(e.target.value)} />
-      </label>
 
       {!pages ? (
         <p className="muted">Cargando hojas…</p>
@@ -170,15 +164,15 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onExamDate, onDelete }
           {byPosition(pages).map((p) => (
             <li key={p.id} className="page-row">
               <a href={routeToHash({ view: 'hoja', subjectId, topicId: topic.id, pageId: p.id, edit: false })} onClick={() => sfx.page()}>
-                <span className="page-name">📄 {p.title}</span>
+                <span className="page-name"><Icon name="page" size={16} /> {p.title}</span>
                 <span className="page-meta">editada {new Date(p.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
               </a>
               <div className="row-actions">
-                <button title="Subir" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, -1)))}>↑</button>
-                <button title="Bajar" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, 1)))}>↓</button>
-                <button title="Borrar" onClick={() => {
+                <IconButton icon="up" label="Subir hoja" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, -1)))} />
+                <IconButton icon="down" label="Bajar hoja" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, 1)))} />
+                <IconButton icon="trash" label="Borrar hoja" danger onClick={() => {
                   if (confirm(`¿Borrar la hoja "${p.title}"?`)) act(() => deletePage(p.id), sfx.remove);
-                }}>🗑</button>
+                }} />
               </div>
             </li>
           ))}
@@ -186,9 +180,9 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onExamDate, onDelete }
       )}
 
       <div className="row">
-        <button className="primary" onClick={newPage}>+ Hoja nueva</button>
+        <button className="primary" onClick={newPage}><Icon name="plus" /> Hoja nueva</button>
         <label className="button" role="button">
-          Importar .md
+          <Icon name="upload" /> Importar .md
           <input type="file" accept=".md,.markdown,.txt,text/markdown" multiple hidden onChange={(e) => { importFiles(e.target.files); e.target.value = ''; }} />
         </label>
       </div>
