@@ -16,6 +16,9 @@ const PATHS = {
   undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
   page: 'M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h6',
   cards: 'M3 8h13v12H3zM7 8V4h14v12h-5',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  close: 'M6 6l12 12M18 6L6 18',
+  download: 'M12 4v12M7 11l5 5 5-5M5 20h14',
   shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
 } as const;
 
@@ -24,7 +27,7 @@ export type IconName = keyof typeof PATHS;
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   return (
     <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      strokeWidth={name === "more" ? 3.4 : 2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={PATHS[name]} />
     </svg>
   );

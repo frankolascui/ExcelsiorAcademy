@@ -9,7 +9,8 @@ import { tidyText } from '../study/format';
 import { sfx } from '../sfx';
 import { askConfirm, askText } from './Dialog';
 import { CardsPanel } from './CardsPanel';
-import { Icon, IconButton } from './Icon';
+import { Icon } from './Icon';
+import { DropZone, Menu, Modal } from './Kit';
 import { LEVELS } from '../study/srs';
 import type { Level } from '../study/types';
 
@@ -53,8 +54,10 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
         <a className="back-btn" href="#/" onClick={() => sfx.page()}><Icon name="left" size={16} /> Estantería</a>
         <span className="sep">›</span> <span>{subject?.name ?? '…'}</span>
       </nav>
-      <h1 className="binder-title">{subject?.name ?? '…'}</h1>
-      {subject && <LevelPicker subject={subject} onChange={(level) => setSubject({ ...subject, level })} onError={setError} />}
+      <div className="binder-head">
+        <h1 className="binder-title">{subject?.name ?? '…'}</h1>
+        {subject && <LevelPicker subject={subject} onChange={(level) => setSubject({ ...subject, level })} onError={setError} />}
+      </div>
 
       <div className="binder-open">
         <aside className="tabs">
@@ -124,6 +127,7 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete, onTopicsChan
   const [mode, setMode] = useState<'hojas' | 'tarjetas'>(() => { try { return sessionStorage.getItem('modo') === 'tarjetas' ? 'tarjetas' : 'hojas'; } catch { return 'hojas'; } });
   const pick = (m: 'hojas' | 'tarjetas') => { setMode(m); sfx.page(); try { sessionStorage.setItem('modo', m); } catch { /* sin almacenamiento */ } };
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const reload = () => listPages(topic.id).then(setPages).catch((e) => setError(e.message));
   useEffect(() => { reload(); }, [topic.id]);
 
@@ -144,11 +148,11 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete, onTopicsChan
   }
 
   /** Cada archivo .md elegido se convierte en una hoja al final del tema. */
-  async function importFiles(files: FileList | null) {
-    if (!files || !pages) return;
+  async function importFiles(files: File[]) {
+    if (!pages) return;
     await act(async () => {
       let pos = nextPosition(pages);
-      for (const f of Array.from(files)) {
+      for (const f of files) {
         const content = tidyText(await f.text());
         await createPage({ topic_id: topic.id, title: titleFromMarkdown(f.name, content), content, position: pos++ });
       }
@@ -159,12 +163,12 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete, onTopicsChan
     <div className="stack">
       <header className="topic-head">
         <h2>{topic.title}</h2>
-        <div className="row-actions">
-          <IconButton icon="up" label="Subir tema" onClick={() => onMove(-1)} />
-          <IconButton icon="down" label="Bajar tema" onClick={() => onMove(1)} />
-          <IconButton icon="edit" label="Renombrar tema" onClick={onRename} />
-          <IconButton icon="trash" label="Borrar tema" danger onClick={onDelete} />
-        </div>
+        <Menu label="Opciones del tema" items={[
+          { icon: 'edit', label: 'Renombrar tema', onSelect: onRename },
+          { icon: 'up', label: 'Subir tema', onSelect: () => onMove(-1) },
+          { icon: 'down', label: 'Bajar tema', onSelect: () => onMove(1) },
+          { icon: 'trash', label: 'Borrar tema', danger: true, onSelect: onDelete },
+        ]} />
       </header>
 
       <div className="mode-tabs" role="tablist">
@@ -178,20 +182,21 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete, onTopicsChan
         <p className="muted">Cargando hojas…</p>
       ) : (
         <ul className="pages">
-          {pages.length === 0 && <li className="empty-state">Sin hojas todavía. Crea una o importa tus resúmenes en .md.</li>}
+          {pages.length === 0 && <li className="empty-state">Sin hojas todavía. Crea una o importa tus resúmenes.</li>}
           {byPosition(pages).map((p) => (
             <li key={p.id} className="page-row">
               <a href={routeToHash({ view: 'hoja', subjectId, topicId: topic.id, pageId: p.id, edit: false })} onClick={() => sfx.page()}>
                 <span className="page-name"><Icon name="page" size={16} /> {p.title}</span>
                 <span className="page-meta">editada {new Date(p.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
               </a>
-              <div className="row-actions">
-                <IconButton icon="up" label="Subir hoja" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, -1)))} />
-                <IconButton icon="down" label="Bajar hoja" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, 1)))} />
-                <IconButton icon="trash" label="Borrar hoja" danger onClick={async () => {
+              <Menu items={[
+                { icon: 'edit', label: 'Editar', onSelect: () => open(p.id, true) },
+                { icon: 'up', label: 'Subir', onSelect: () => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, -1))) },
+                { icon: 'down', label: 'Bajar', onSelect: () => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, 1))) },
+                { icon: 'trash', label: 'Borrar', danger: true, onSelect: async () => {
                   if (await askConfirm({ title: `¿Borrar la hoja «${p.title}»?`, message: 'No se puede deshacer.', confirmLabel: 'Borrar hoja', danger: true })) act(() => deletePage(p.id), sfx.remove);
-                }} />
-              </div>
+                } },
+              ]} />
             </li>
           ))}
         </ul>
@@ -199,11 +204,14 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete, onTopicsChan
 
       {mode === 'hojas' && <div className="row">
         <button className="primary" onClick={newPage}><Icon name="plus" /> Hoja nueva</button>
-        <label className="button" role="button">
-          <Icon name="upload" /> Importar .md
-          <input type="file" accept=".md,.markdown,.txt,text/markdown" multiple hidden onChange={(e) => { importFiles(e.target.files); e.target.value = ''; }} />
-        </label>
+        <button className="ghost" onClick={() => { setImporting(true); sfx.open(); }}><Icon name="download" /> Importar</button>
       </div>}
+      {importing && (
+        <Modal title="Importar resúmenes" onClose={() => setImporting(false)}>
+          <DropZone accept=".md,.markdown,.txt,text/markdown" multiple hint="uno o varios .md o .txt; cada archivo será una hoja"
+            onFiles={(files) => { setImporting(false); importFiles(files); }} />
+        </Modal>
+      )}
       {error && <p className="error">{error}</p>}
     </div>
   );
@@ -258,18 +266,17 @@ function LevelPicker({ subject, onChange, onError }: { subject: Subject; onChang
       onError(/level/.test(msg) ? 'Para elegir nivel, ejecuta antes supabase/03-niveles.sql en el SQL Editor de Supabase.' : msg);
     }
   }
+  const cur = LEVELS[subject.level] ?? LEVELS.equilibrado;
   return (
-    <div className="level-picker" role="radiogroup" aria-label="Nivel de exigencia">
-      <span className="eyebrow">Nivel de exigencia</span>
-      <div className="level-options">
+    <div className="level-picker">
+      <div className="segmented" role="radiogroup" aria-label="Nivel de exigencia">
         {(Object.keys(LEVELS) as Level[]).map((l) => (
-          <button key={l} type="button" role="radio" aria-checked={subject.level === l} onClick={() => pick(l)}>
-            <strong>{LEVELS[l].label}</strong>
-            <span className="level-hint">{LEVELS[l].hint}</span>
-            <span className="level-meta">{Math.round(LEVELS[l].retention * 100)} % · {LEVELS[l].newPerDay} nuevas/día</span>
+          <button key={l} type="button" role="radio" aria-checked={(subject.level ?? 'equilibrado') === l} title={LEVELS[l].hint} onClick={() => pick(l)}>
+            {LEVELS[l].label}
           </button>
         ))}
       </div>
+      <span className="level-meta">{cur.hint} · {Math.round(cur.retention * 100)} % · {cur.newPerDay} nuevas/día</span>
     </div>
   );
 }
