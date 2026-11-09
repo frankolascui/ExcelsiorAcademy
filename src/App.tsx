@@ -1,49 +1,67 @@
 import { useEffect, useState } from 'react';
-import { checkCloud, type CloudStatus } from './cloud';
+import { signOut, useSession } from './cloud';
+import { isMuted, setMuted, sfx } from './sfx';
+import { parseRoute, type Route } from './study/logic';
+import { Binder } from './ui/Binder';
+import { Login } from './ui/Login';
+import { PageView } from './ui/PageView';
+import { Shelf } from './ui/Shelf';
 
-const SECCIONES = [
-  { nombre: 'Resúmenes', paso: 3 },
-  { nombre: 'Flashcards', paso: 4 },
-  { nombre: 'Simulacros', paso: 6 },
-];
-
-const TEXTO: Record<CloudStatus, string> = {
-  comprobando: 'Comprobando conexión…',
-  conectado: '✅ Conectada a Supabase (el mismo que Excelsior RPG).',
-  error: '❌ No llega a Supabase. Revisa la conexión a internet.',
-};
+/** La ruta actual sale de la parte de la dirección después de #. */
+function useRoute(): Route {
+  const [route, setRoute] = useState(() => parseRoute(location.hash));
+  useEffect(() => {
+    const onChange = () => setRoute(parseRoute(location.hash));
+    addEventListener('hashchange', onChange);
+    return () => removeEventListener('hashchange', onChange);
+  }, []);
+  return route;
+}
 
 export default function App() {
-  const [status, setStatus] = useState<CloudStatus>('comprobando');
-
-  // Al abrir la web, comprueba una vez si llega a Supabase.
-  useEffect(() => {
-    checkCloud().then(setStatus);
-  }, []);
+  const session = useSession();
+  const route = useRoute();
 
   return (
     <main className="page">
-      <header>
-        <h1>Excelsior Academy</h1>
-        <p className="muted">Resúmenes, flashcards y simulacros en un solo sitio.</p>
+      <header className="top">
+        <a href="#/" className="brand">Excelsior <span>Academy</span></a>
+        <div className="top-right">
+          {session && (
+            <span className="muted small who">
+              {session.user.email} · <button className="link" onClick={() => { sfx.tick(); signOut(); }}>Salir</button>
+            </span>
+          )}
+          <SoundToggle />
+        </div>
       </header>
 
-      <section className="card">
-        <h2>Estado de la base de datos</h2>
-        <p>{TEXTO[status]}</p>
-      </section>
-
-      <section>
-        <h2>Próximamente</h2>
-        <ul className="grid">
-          {SECCIONES.map((s) => (
-            <li key={s.nombre} className="card">
-              <strong>{s.nombre}</strong>
-              <span className="muted">Paso {s.paso}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {session === undefined && <p className="muted">Cargando…</p>}
+      {session === null && <Login />}
+      {session && route.view === 'estanteria' && <Shelf />}
+      {session && route.view === 'asignatura' && <Binder subjectId={route.subjectId} topicId={route.topicId} />}
+      {session && route.view === 'hoja' && (
+        <PageView subjectId={route.subjectId} topicId={route.topicId} pageId={route.pageId} edit={route.edit} />
+      )}
     </main>
+  );
+}
+
+/** Botón de silencio, como en Excelsior RPG. La preferencia se guarda en este navegador. */
+function SoundToggle() {
+  const [muted, setM] = useState(isMuted());
+  return (
+    <button
+      className="icon-round"
+      aria-pressed={muted}
+      title={muted ? 'Activar sonido' : 'Silenciar'}
+      onClick={() => {
+        setMuted(!muted);
+        setM(!muted);
+        if (muted) sfx.tick();
+      }}
+    >
+      {muted ? '🔇' : '🔊'}
+    </button>
   );
 }
