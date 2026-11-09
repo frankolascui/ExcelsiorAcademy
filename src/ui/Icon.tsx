@@ -31,7 +31,7 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
 }
 
 /** Botón cuadrado con solo un icono. `label` es lo que lee un lector de pantalla y sale al pasar el ratón. */
-export function IconButton({ icon, label, onClick, danger }: { icon: IconName; label: string; onClick: () => void; danger?: boolean }) {
+export function IconButton({ icon, label, onClick, danger }: { icon: IconName; label: string; onClick: () => unknown; danger?: boolean }) {
   return (
     <button type="button" className={danger ? 'icon-btn danger' : 'icon-btn'} title={label} aria-label={label} onClick={onClick}>
       <Icon name={icon} />

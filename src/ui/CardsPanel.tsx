@@ -5,10 +5,12 @@ import { dueLabel, parseCardLines } from '../study/srs';
 import { plainPreview } from '../study/format';
 import type { CardRow } from '../study/types';
 import { sfx } from '../sfx';
+import { askConfirm } from './Dialog';
 import { Icon, IconButton } from './Icon';
+import { ApkgImport } from './ApkgImport';
 
 /** Las flashcards de un tema: crear, editar, borrar, importar y lanzar el repaso. */
-export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId: string }) {
+export function CardsPanel({ subjectId, topicId, onTopicsChanged }: { subjectId: string; topicId: string; onTopicsChanged?: () => void }) {
   const [cards, setCards] = useState<CardRow[] | null>(null);
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
@@ -90,7 +92,7 @@ export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId:
               <span className={`pill s${c.state}`}>{dueLabel(c, now)}</span>
               <div className="row-actions">
                 <IconButton icon="edit" label="Editar tarjeta" onClick={() => { sfx.tick(); setEditing(c.id); }} />
-                <IconButton icon="trash" label="Borrar tarjeta" danger onClick={() => { if (confirm('¿Borrar esta tarjeta y su historial?')) act(() => deleteCard(c.id), sfx.remove); }} />
+                <IconButton icon="trash" label="Borrar tarjeta" danger onClick={async () => { if (await askConfirm({ title: '¿Borrar esta tarjeta?', message: 'Se borra también su historial de repasos.', confirmLabel: 'Borrar tarjeta', danger: true })) act(() => deleteCard(c.id), sfx.remove); }} />
               </div>
             </li>
           ),
@@ -98,7 +100,7 @@ export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId:
       </ul>
 
       <details className="bulk">
-        <summary>Pegar o importar muchas a la vez</summary>
+        <summary>Pegar o importar muchas a la vez (también de Anki)</summary>
         <p className="muted small">
           Una tarjeta por línea: <code>pregunta;respuesta</code> (el formato de las flashcards que te da la skill). También vale separar con tabulador, como al copiar de una hoja de cálculo.
         </p>
@@ -114,6 +116,7 @@ export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId:
             }} />
           </label>
         </div>
+        <ApkgImport subjectId={subjectId} topicId={topicId} existing={cards} onDone={(changed) => { reload(); if (changed) onTopicsChanged?.(); }} />
       </details>
       {error && <p className="error">{error}</p>}
     </div>

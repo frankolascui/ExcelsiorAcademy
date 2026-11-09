@@ -3,6 +3,7 @@ import { createSubject, deleteSubject, listSubjects, savePositions, updateSubjec
 import { byPosition, nextPosition, routeToHash, swapWithNeighbour, SUBJECT_COLORS } from '../study/logic';
 import type { Subject } from '../study/types';
 import { sfx } from '../sfx';
+import { askConfirm, askText } from './Dialog';
 import { TodayPanel } from './Review';
 import { Icon, IconButton } from './Icon';
 
@@ -52,12 +53,12 @@ export function Shelf() {
             <div className="row-actions">
               <IconButton icon="left" label="Mover antes" onClick={() => act(() => savePositions('study_subjects', swapWithNeighbour(subjects, s.id, -1)))} />
               <IconButton icon="right" label="Mover después" onClick={() => act(() => savePositions('study_subjects', swapWithNeighbour(subjects, s.id, 1)))} />
-              <IconButton icon="edit" label="Renombrar" onClick={() => {
-                const n = prompt('Nuevo nombre', s.name)?.trim();
+              <IconButton icon="edit" label="Renombrar" onClick={async () => {
+                const n = await askText({ title: 'Renombrar asignatura', label: 'Nombre de la asignatura', initial: s.name });
                 if (n) act(() => updateSubject(s.id, { name: n }), sfx.saved);
               }} />
-              <IconButton icon="trash" label="Borrar" danger onClick={() => {
-                if (confirm(`¿Borrar "${s.name}" con todos sus temas y hojas? No se puede deshacer.`)) act(() => deleteSubject(s.id), sfx.remove);
+              <IconButton icon="trash" label="Borrar" danger onClick={async () => {
+                if (await askConfirm({ title: `¿Borrar «${s.name}»?`, message: 'Se borrarán todos sus temas, hojas y tarjetas. No se puede deshacer.', confirmLabel: 'Borrar asignatura', danger: true })) act(() => deleteSubject(s.id), sfx.remove);
               }} />
             </div>
           </li>

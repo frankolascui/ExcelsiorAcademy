@@ -6,7 +6,7 @@ import { tidyText } from './format';
 
 let service: TurndownService | null = null;
 
-function turndown(): TurndownService {
+export function turndown(): TurndownService {
   if (service) return service;
   service = new TurndownService({ headingStyle: 'atx', bulletListMarker: '-', codeBlockStyle: 'fenced', emDelimiter: '*' });
   service.use(gfm);
