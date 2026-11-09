@@ -1,0 +1,155 @@
+// Repetición espaciada con FSRS (el algoritmo que usa Anki), mediante la librería ts-fsrs.
+// Aquí solo hay lógica pura: decide qué toca hoy y cuándo vuelve cada tarjeta. Se prueba en srs.test.ts.
+import { fsrs, generatorParameters, Rating, State, type Card, type Grade } from 'ts-fsrs';
+import type { CardRow } from './types';
+
+/**
+ * Ajustes del algoritmo.
+ * - request_retention 0.9: busca que recuerdes el 90 % de las tarjetas cuando te las pregunta (el valor por defecto de Anki con FSRS).
+ * - enable_fuzz: mueve un poco las fechas para que las tarjetas creadas juntas no vuelvan todas el mismo día.
+ * - learning_steps: una tarjeta nueva vuelve a los 1 y 10 minutos antes de pasar a días.
+ */
+export const scheduler = fsrs(generatorParameters({ request_retention: 0.9, enable_fuzz: true, learning_steps: ['1m', '10m'], relearning_steps: ['10m'] }));
+
+export const NEW_PER_DAY = 20;
+
+export const GRADES: { grade: Grade; label: string; key: string }[] = [
+  { grade: Rating.Again, label: 'Otra vez', key: '1' },
+  { grade: Rating.Hard, label: 'Difícil', key: '2' },
+  { grade: Rating.Good, label: 'Bien', key: '3' },
+  { grade: Rating.Easy, label: 'Fácil', key: '4' },
+];
+
+/** Fila de la base de datos → tarjeta de ts-fsrs. */
+export function toCard(row: CardRow): Card {
+  return {
+    due: new Date(row.due),
+    stability: row.stability,
+    difficulty: row.difficulty,
+    elapsed_days: row.elapsed_days,
+    scheduled_days: row.scheduled_days,
+    learning_steps: row.learning_steps,
+    reps: row.reps,
+    lapses: row.lapses,
+    state: row.state as State,
+    last_review: row.last_review ? new Date(row.last_review) : undefined,
+  };
+}
+
+/** Tarjeta de ts-fsrs → columnas que hay que guardar. */
+export function fromCard(c: Card): Omit<CardRow, 'id' | 'topic_id' | 'front' | 'back' | 'created_at'> {
+  return {
+    due: c.due.toISOString(),
+    stability: c.stability,
+    difficulty: c.difficulty,
+    elapsed_days: Math.round(c.elapsed_days),
+    scheduled_days: Math.round(c.scheduled_days),
+    learning_steps: c.learning_steps,
+    reps: c.reps,
+    lapses: c.lapses,
+    state: c.state as CardRow['state'],
+    last_review: c.last_review ? c.last_review.toISOString() : null,
+  };
+}
+
+/** Qué pasa con la tarjeta si respondes `grade` ahora. */
+export function answer(row: CardRow, grade: Grade, now: Date) {
+  const { card } = scheduler.next(toCard(row), now, grade);
+  return fromCard(card);
+}
+
+/** Intervalo de cada botón, para enseñarlo encima («10 min», «3 d»…). */
+export function previewIntervals(row: CardRow, now: Date): Record<Grade, string> {
+  const preview = scheduler.repeat(toCard(row), now);
+  const out = {} as Record<Grade, string>;
+  for (const { grade } of GRADES) out[grade] = formatInterval(preview[grade].card.due.getTime() - now.getTime());
+  return out;
+}
+
+/** Duración legible y corta: «<1 min», «10 min», «3 h», «4 d», «2 mes», «1,5 años». */
+export function formatInterval(ms: number): string {
+  const min = ms / 60_000;
+  if (min < 1) return '<1 min';
+  if (min < 60) return `${Math.round(min)} min`;
+  const h = min / 60;
+  if (h < 24) return `${Math.round(h)} h`;
+  const d = h / 24;
+  if (d < 30) return `${Math.round(d)} d`;
+  if (d < 365) return `${Math.round(d / 30)} mes`;
+  return `${(d / 365).toFixed(1).replace('.', ',').replace(',0', '')} años`;
+}
+
+/**
+ * La cola de hoy:
+ * 1. las tarjetas que ya tocan (due ≤ ahora) y no son nuevas, primero las más atrasadas;
+ * 2. después, tarjetas nuevas hasta completar el límite diario (en el orden en que se crearon).
+ */
+export function buildQueue(cards: readonly CardRow[], now: Date, newDoneToday: number, newPerDay = NEW_PER_DAY): CardRow[] {
+  const due = cards
+    .filter((c) => c.state !== State.New && new Date(c.due) <= now)
+    .sort((a, b) => a.due.localeCompare(b.due));
+  const room = Math.max(0, newPerDay - newDoneToday);
+  const fresh = cards
+    .filter((c) => c.state === State.New)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .slice(0, room);
+  return [...due, ...fresh];
+}
+
+/** Cuenta para enseñar en pantalla: nuevas, aprendiendo y repaso que tocan hoy. */
+export function countsFor(queue: readonly CardRow[]) {
+  return {
+    nuevas: queue.filter((c) => c.state === State.New).length,
+    aprendiendo: queue.filter((c) => c.state === State.Learning || c.state === State.Relearning).length,
+    repaso: queue.filter((c) => c.state === State.Review).length,
+  };
+}
+
+/**
+ * Tras responder, ¿vuelve en esta misma sesión? Solo si toca dentro de poco (pasos de aprendizaje
+ * de minutos). Devuelve la posición donde reinsertarla o -1 si ya no vuelve hoy.
+ */
+export function requeueIndex(nextDue: Date, now: Date, queueLength: number, withinMinutes = 20): number {
+  const mins = (nextDue.getTime() - now.getTime()) / 60_000;
+  if (mins > withinMinutes) return -1;
+  // Se coloca unas tarjetas más adelante para no verla dos veces seguidas.
+  return Math.min(queueLength, 3);
+}
+
+/**
+ * Importar tarjetas pegadas como texto: una por línea, «pregunta;respuesta»
+ * (el formato de los CSV que genera la skill). También vale un tabulador.
+ */
+export function parseCardLines(text: string): { front: string; back: string }[] {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !/^pregunta\s*[;\t]\s*respuesta$/i.test(l))
+    .map((l) => {
+      const i = l.search(/[;\t]/);
+      if (i < 0) return null;
+      const front = l.slice(0, i).trim().replace(/^"|"$/g, '');
+      const back = l.slice(i + 1).trim().replace(/^"|"$/g, '');
+      return front ? { front, back } : null;
+    })
+    .filter((x): x is { front: string; back: string } => x !== null);
+}
+
+/** Etiqueta corta para la lista de tarjetas: «nueva», «toca ya» o «en 3 d». */
+export function dueLabel(row: Pick<CardRow, 'state' | 'due'>, now: Date): string {
+  if (row.state === State.New) return 'nueva';
+  const ms = new Date(row.due).getTime() - now.getTime();
+  return ms <= 0 ? 'toca ya' : `en ${formatInterval(ms)}`;
+}
+
+/** Resumen de una sesión de repaso a partir de las notas dadas (1 a 4). */
+export function sessionSummary(ratings: readonly number[]) {
+  const total = ratings.length;
+  const again = ratings.filter((r) => r === Rating.Again).length;
+  return {
+    total,
+    again,
+    // Porcentaje de aciertos: todo lo que no sea «Otra vez» cuenta como recordado (como en Anki).
+    retention: total ? Math.round(((total - again) / total) * 100) : 0,
+  };
+}

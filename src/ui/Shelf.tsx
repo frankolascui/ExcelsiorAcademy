@@ -3,6 +3,7 @@ import { createSubject, deleteSubject, listSubjects, savePositions, updateSubjec
 import { byPosition, nextPosition, routeToHash, swapWithNeighbour, SUBJECT_COLORS } from '../study/logic';
 import type { Subject } from '../study/types';
 import { sfx } from '../sfx';
+import { TodayPanel } from './Review';
 
 /** La estantería: una carpeta por asignatura. */
 export function Shelf() {
@@ -38,6 +39,7 @@ export function Shelf() {
         <p className="eyebrow">Tu archivo de apuntes</p>
         <h1 className="section-title">Mi estantería</h1>
       </div>
+      {subjects.length > 0 && <TodayPanel />}
       {subjects.length === 0 && <p className="empty-state">Todavía no tienes asignaturas. Crea la primera abajo: cada una será una carpeta.</p>}
       <ul className="shelf">
         {byPosition(subjects).map((s) => (

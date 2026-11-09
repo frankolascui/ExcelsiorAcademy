@@ -87,3 +87,12 @@ export function headingsOf(markdown: string): Heading[] {
   }
   return out;
 }
+
+/** Texto plano para las listas: quita las marcas de Markdown más comunes (**negrita**, _cursiva_, `código`, $). */
+export function plainPreview(markdown: string): string {
+  return markdown
+    .replace(/\*\*|__|`|\$\$?/g, '')
+    .replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=[\s).,;:!?]|$)/g, '$1$2')
+    .replace(/^#{1,6}\s+/gm, '')
+    .trim();
+}

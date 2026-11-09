@@ -7,6 +7,7 @@ import { byPosition, daysUntil, nextPosition, routeToHash, swapWithNeighbour, ti
 import type { Subject, Topic } from '../study/types';
 import { tidyText } from '../study/format';
 import { sfx } from '../sfx';
+import { CardsPanel } from './CardsPanel';
 
 /** El archivador de una asignatura: separadores (temas) a la izquierda y hojas a la derecha. */
 export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: string }) {
@@ -114,6 +115,9 @@ interface PanelProps {
 /** Las hojas de un tema, con las acciones del tema arriba. */
 function TopicPanel({ subjectId, topic, onMove, onRename, onExamDate, onDelete }: PanelProps) {
   const [pages, setPages] = useState<PageSummary[] | null>(null);
+  // Pestaña elegida (hojas o tarjetas); se recuerda en este navegador.
+  const [mode, setMode] = useState<'hojas' | 'tarjetas'>(() => { try { return sessionStorage.getItem('modo') === 'tarjetas' ? 'tarjetas' : 'hojas'; } catch { return 'hojas'; } });
+  const pick = (m: 'hojas' | 'tarjetas') => { setMode(m); sfx.page(); try { sessionStorage.setItem('modo', m); } catch { /* sin almacenamiento */ } };
   const [error, setError] = useState<string | null>(null);
   const reload = () => listPages(topic.id).then(setPages).catch((e) => setError(e.message));
   useEffect(() => { reload(); }, [topic.id]);
@@ -162,7 +166,14 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onExamDate, onDelete }
         <input type="date" value={topic.exam_date ?? ''} onChange={(e) => onExamDate(e.target.value)} />
       </label>
 
-      {!pages ? (
+      <div className="mode-tabs" role="tablist">
+        <button role="tab" aria-selected={mode === 'hojas'} onClick={() => pick('hojas')}>📄 Hojas{pages ? ` (${pages.length})` : ''}</button>
+        <button role="tab" aria-selected={mode === 'tarjetas'} onClick={() => pick('tarjetas')}>🃏 Tarjetas</button>
+      </div>
+
+      {mode === 'tarjetas' ? (
+        <CardsPanel subjectId={subjectId} topicId={topic.id} />
+      ) : !pages ? (
         <p className="muted">Cargando hojas…</p>
       ) : (
         <ul className="pages">
@@ -185,13 +196,13 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onExamDate, onDelete }
         </ul>
       )}
 
-      <div className="row">
+      {mode === 'hojas' && <div className="row">
         <button className="primary" onClick={newPage}>+ Hoja nueva</button>
         <label className="button" role="button">
           Importar .md
           <input type="file" accept=".md,.markdown,.txt,text/markdown" multiple hidden onChange={(e) => { importFiles(e.target.files); e.target.value = ''; }} />
         </label>
-      </div>
+      </div>}
       {error && <p className="error">{error}</p>}
     </div>
   );

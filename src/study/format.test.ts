@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { headingsOf, smartFormat, tidyText } from './format';
+import { headingsOf, plainPreview, smartFormat, tidyText } from './format';
 
 describe('tidyText (al pegar)', () => {
   it('convierte viñetas raras en listas', () => {
@@ -38,5 +38,13 @@ describe('headingsOf (índice)', () => {
       { level: 3, text: 'Tipos', slug: 'tipos' },
       { level: 2, text: 'Ruido', slug: 'ruido-1' },
     ]);
+  });
+});
+
+describe('plainPreview', () => {
+  it('quita las marcas de Markdown', () => {
+    expect(plainPreview('¿Qué es el **emisor**?')).toBe('¿Qué es el emisor?');
+    expect(plainPreview('## Título con _cursiva_ y `code`')).toBe('Título con cursiva y code');
+    expect(plainPreview('Área: $\\pi r^2$')).toBe('Área: \\pi r^2');
   });
 });
