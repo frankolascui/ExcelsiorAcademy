@@ -414,7 +414,7 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
 .crumbs .back-btn { color: var(--fg); margin-right: 4px; }
 
 /* Repasar mezclando temas */
-.mix { margin: 14px 12px 0 0; border: 1px dashed var(--line); border-radius: 14px; padding: 10px 12px; display: grid; gap: 10px; }
+.mix { margin: 4px 0 0; border: 1px dashed var(--line); border-radius: 14px; padding: 10px 12px; display: grid; gap: 10px; }
 .mix summary { cursor: pointer; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; color: var(--muted); list-style: none; }
 .mix summary::-webkit-details-marker { display: none; }
 .mix[open] summary, .mix summary:hover { color: var(--fg); }
