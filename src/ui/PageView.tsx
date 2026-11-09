@@ -1,27 +1,36 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { getPage, listSubjects, listTopics, updatePage } from '../study/api';
+import { smartFormat } from '../study/format';
 import { routeToHash } from '../study/logic';
-import type { Page } from '../study/types';
+import { pastedMarkdown } from '../study/paste';
+import type { Page, Subject } from '../study/types';
+import { sfx } from '../sfx';
 
 // Las fórmulas (KaTeX) pesan mucho: se cargan solo al abrir una hoja.
-const Markdown = lazy(() => import('./Markdown').then((m) => ({ default: m.Markdown })));
+const md = () => import('./Markdown');
+const Markdown = lazy(() => md().then((m) => ({ default: m.Markdown })));
+const Toc = lazy(() => md().then((m) => ({ default: m.Toc })));
 
 interface Props { subjectId: string; topicId: string; pageId: string; edit: boolean }
 
-/** Una hoja: se lee como un resumen y se edita en Markdown con vista previa al lado. */
+/** Una hoja: se lee como unos apuntes cuidados y se edita en Markdown con vista previa al lado. */
 export function PageView({ subjectId, topicId, pageId, edit }: Props) {
   const [page, setPage] = useState<Page | null>(null);
-  const [names, setNames] = useState({ subject: '…', topic: '…' });
+  const [subject, setSubject] = useState<Subject | null>(null);
+  const [topicName, setTopicName] = useState('…');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [beforeFormat, setBeforeFormat] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     getPage(pageId).then((p) => { setPage(p); setTitle(p.title); setContent(p.content); }).catch((e) => setError(e.message));
-    Promise.all([listSubjects(), listTopics(subjectId)]).then(([ss, ts]) =>
-      setNames({ subject: ss.find((s) => s.id === subjectId)?.name ?? '…', topic: ts.find((t) => t.id === topicId)?.title ?? '…' }),
-    ).catch(() => {});
+    Promise.all([listSubjects(), listTopics(subjectId)]).then(([ss, ts]) => {
+      setSubject(ss.find((s) => s.id === subjectId) ?? null);
+      setTopicName(ts.find((t) => t.id === topicId)?.title ?? '…');
+    }).catch(() => {});
   }, [pageId, subjectId, topicId]);
 
   const dirty = page !== null && (title !== page.title || content !== page.content);
@@ -35,7 +44,7 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
   }, [dirty]);
 
   async function save() {
-    if (!page) return;
+    if (!page || !dirty) return;
     setSaving(true);
     try {
       const clean = title.trim() || 'Hoja sin título';
@@ -43,24 +52,48 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
       setPage({ ...page, title: clean, content });
       setTitle(clean);
       setError(null);
-    } catch (err) { setError((err as Error).message); }
+      sfx.saved();
+    } catch (err) { setError((err as Error).message); sfx.error(); }
     setSaving(false);
+  }
+
+  /** Al pegar, el texto entra ya ordenado (y con su formato si viene de Word o Docs). */
+  function onPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const text = pastedMarkdown(e.clipboardData);
+    if (!text.trim()) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const { selectionStart: a, selectionEnd: b } = el;
+    const next = content.slice(0, a) + text + content.slice(b);
+    setContent(next);
+    requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + text.length; });
+  }
+
+  function formatAll() {
+    const next = smartFormat(content);
+    if (next === content) return;
+    setBeforeFormat(content);
+    setContent(next);
+    sfx.check();
   }
 
   const go = (editMode: boolean) => {
     if (!editMode && dirty && !confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) return;
     if (!editMode && dirty && page) { setTitle(page.title); setContent(page.content); }
+    sfx.page();
     location.hash = routeToHash({ view: 'hoja', subjectId, topicId, pageId, edit: editMode });
   };
 
   if (!page) return <p className="muted">{error ?? 'Abriendo hoja…'}</p>;
 
+  const spine = { '--spine': subject?.color ?? 'var(--c2)' } as React.CSSProperties;
+
   return (
-    <section className="stack">
+    <section className="stack" style={spine}>
       <nav className="crumbs">
         <a href="#/">Estantería</a> <span>›</span>
-        <a href={routeToHash({ view: 'asignatura', subjectId })}>{names.subject}</a> <span>›</span>
-        <a href={routeToHash({ view: 'asignatura', subjectId, topicId })}>{names.topic}</a>
+        <a href={routeToHash({ view: 'asignatura', subjectId })}>{subject?.name ?? '…'}</a> <span>›</span>
+        <a href={routeToHash({ view: 'asignatura', subjectId, topicId })}>{topicName}</a>
       </nav>
 
       {edit ? (
@@ -71,24 +104,47 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
           }}
         >
           <div className="row">
-            <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
-            <button className="primary" onClick={save} disabled={saving || !dirty}>{saving ? 'Guardando…' : dirty ? 'Guardar' : 'Guardado'}</button>
-            <button onClick={() => go(false)}>Ver</button>
+            <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} aria-label="Título de la hoja" />
+            <button className="primary" onClick={save} disabled={saving || !dirty}>{saving ? 'Guardando…' : dirty ? 'Guardar' : 'Guardado ✓'}</button>
+            <button className="ghost" onClick={() => go(false)}>Ver</button>
           </div>
-          <p className="muted small">Markdown: # Título, ## Apartado, **negrita**, - lista, | tabla |, fórmulas con $x^2$ o $$...$$. Ctrl+S guarda.</p>
+          <div className="row toolbar">
+            <button className="secondary" onClick={formatAll} title="Viñetas, títulos y conceptos en negrita">✨ Ordenar formato</button>
+            {beforeFormat !== null && (
+              <button className="ghost small" onClick={() => { setContent(beforeFormat); setBeforeFormat(null); sfx.undo(); }}>Deshacer</button>
+            )}
+            <span className="muted small">Pega desde Word o Docs sin miedo: se conserva el formato. Ctrl+S guarda.</span>
+          </div>
+          <details className="cheats">
+            <summary className="muted small">Chuleta de formato</summary>
+            <p className="small mono">## Apartado · ### Subapartado · **negrita** · - lista · 1. lista · &gt; recuadro · | tabla | · $x^2$ · $$fórmula$$</p>
+          </details>
           <div className="editor">
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} spellCheck placeholder="Escribe o pega aquí tu resumen…" />
-            <div className="preview card"><Suspense fallback={null}><Markdown text={content} /></Suspense></div>
+            <textarea
+              ref={area}
+              value={content}
+              onChange={(e) => { setContent(e.target.value); setBeforeFormat(null); }}
+              onPaste={onPaste}
+              spellCheck
+              placeholder="Escribe o pega aquí tus apuntes…"
+            />
+            <div className="preview panel"><Suspense fallback={null}><Markdown text={content} /></Suspense></div>
           </div>
         </div>
       ) : (
-        <article className="card paper">
-          <div className="row spread">
-            <h1 className="page-title">{page.title}</h1>
-            <button onClick={() => go(true)}>✎ Editar</button>
-          </div>
-          {page.content.trim() ? <Suspense fallback={<p className="muted">Cargando…</p>}><Markdown text={page.content} /></Suspense> : <p className="muted">Hoja en blanco. Pulsa Editar para escribir.</p>}
-        </article>
+        <div className="reader">
+          <article className="paper">
+            <header className="paper-head">
+              <p className="eyebrow">{topicName}</p>
+              <h1 className="page-title">{page.title}</h1>
+              <button className="ghost small" onClick={() => go(true)}>✎ Editar</button>
+            </header>
+            {page.content.trim()
+              ? <Suspense fallback={<p className="muted">Cargando…</p>}><Markdown text={page.content} /></Suspense>
+              : <p className="muted">Hoja en blanco. Pulsa Editar para escribir o pegar tus apuntes.</p>}
+          </article>
+          <aside className="reader-side"><Suspense fallback={null}><Toc text={page.content} /></Suspense></aside>
+        </div>
       )}
       {error && <p className="error">{error}</p>}
     </section>

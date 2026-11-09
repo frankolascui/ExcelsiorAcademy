@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { sendCode, verifyCode } from '../cloud';
+import { sfx } from '../sfx';
 
 /** Entrar con la cuenta de Excelsior RPG: email → código de 6 cifras. */
 export function Login() {
@@ -15,8 +16,9 @@ export function Login() {
     setError(null);
     const err = step === 'email' ? await sendCode(email) : await verifyCode(email, code);
     setBusy(false);
-    if (err) setError(err);
-    else if (step === 'email') setStep('code');
+    if (err) { setError(err); sfx.error(); }
+    else if (step === 'email') { setStep('code'); sfx.tick(); }
+    else sfx.confirm();
   }
 
   return (

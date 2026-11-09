@@ -63,6 +63,15 @@ Lo que va después de `#` en la dirección dice qué estás viendo: `a` es la as
 
 Con "Importar .md" subes de golpe los resúmenes que ya te ha hecho Claude: cada archivo se convierte en una hoja, con el primer `#` como título.
 
+## 7. Apuntes pegados que se ven bien (`src/study/format.ts`, `src/study/paste.ts`)
+
+- **Al pegar** (`pastedMarkdown`): si copias de Word, Google Docs o una web, el portapapeles trae HTML y se convierte a Markdown con *turndown*, así que se conservan negritas, títulos, listas y tablas. Si es texto plano, `tidyText` convierte las viñetas raras (•, ◦, –, →) en listas y "1)" en "1.".
+- **Saltos de línea**: en Markdown normal, dos líneas seguidas se juntan en un solo párrafo, y eso era lo que hacía feos los apuntes pegados. Ahora se respetan (`remark-breaks`).
+- **✨ Ordenar formato** (`smartFormat`): una línea en MAYÚSCULAS pasa a ser apartado; una línea corta que acaba en ":" pasa a ser subapartado; y en "Concepto: definición" el concepto se pone en negrita. Solo toca líneas sin formato, y se puede deshacer.
+- **Índice**: `headingsOf` saca los ## y ### de la hoja para el índice lateral.
+
+Los sonidos (`src/sfx.ts`) son los mismos de Excelsior RPG, sintetizados con Web Audio y sin archivos.
+
 ## Tu cambio pequeño
 
 En `src/study/logic.ts` está `SUBJECT_COLORS`, los colores de las carpetas. Añade uno nuevo que te guste (formato `#rrggbb`) y comprueba que sale en la estantería.

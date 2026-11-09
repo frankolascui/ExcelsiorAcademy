@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { signOut, useSession } from './cloud';
+import { isMuted, setMuted, sfx } from './sfx';
 import { parseRoute, type Route } from './study/logic';
 import { Binder } from './ui/Binder';
 import { Login } from './ui/Login';
@@ -24,12 +25,15 @@ export default function App() {
   return (
     <main className="page">
       <header className="top">
-        <a href="#/" className="brand">Excelsior Academy</a>
-        {session && (
-          <span className="muted small">
-            {session.user.email} · <button className="link" onClick={signOut}>Salir</button>
-          </span>
-        )}
+        <a href="#/" className="brand">Excelsior <span>Academy</span></a>
+        <div className="top-right">
+          {session && (
+            <span className="muted small who">
+              {session.user.email} · <button className="link" onClick={() => { sfx.tick(); signOut(); }}>Salir</button>
+            </span>
+          )}
+          <SoundToggle />
+        </div>
       </header>
 
       {session === undefined && <p className="muted">Cargando…</p>}
@@ -40,5 +44,24 @@ export default function App() {
         <PageView subjectId={route.subjectId} topicId={route.topicId} pageId={route.pageId} edit={route.edit} />
       )}
     </main>
+  );
+}
+
+/** Botón de silencio, como en Excelsior RPG. La preferencia se guarda en este navegador. */
+function SoundToggle() {
+  const [muted, setM] = useState(isMuted());
+  return (
+    <button
+      className="icon-round"
+      aria-pressed={muted}
+      title={muted ? 'Activar sonido' : 'Silenciar'}
+      onClick={() => {
+        setMuted(!muted);
+        setM(!muted);
+        if (muted) sfx.tick();
+      }}
+    >
+      {muted ? '🔇' : '🔊'}
+    </button>
   );
 }
