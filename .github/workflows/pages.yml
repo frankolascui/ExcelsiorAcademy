@@ -1,0 +1,36 @@
+# Publica la web en GitHub Pages (gratis en repos públicos) para probarla sin gastar créditos de Netlify.
+# Cada push a main o a una rama paso-* compila la web y copia dist/ en la rama gh-pages.
+# Dirección: https://frankolascui.github.io/ExcelsiorAcademy/
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main, 'paso-*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Copia en la rama gh-pages
+        run: |
+          cd dist
+          touch .nojekyll
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Web de ${GITHUB_REF_NAME} (${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
