@@ -532,3 +532,89 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
 .new-subject { display: grid; gap: 14px; }
 .new-subject .colors { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 760px) { .binder-new { min-height: 160px; } }
+
+/* ---------- Simulacros (paso 8) ---------- */
+/* Pestaña aparte bajo los temas: los simulacros son de toda la asignatura. */
+.exams-tab {
+  display: flex; gap: 10px; align-items: center; text-decoration: none; padding: 11px 12px; font-weight: 700;
+  border-radius: 12px; border: 1px solid color-mix(in srgb, var(--spine) 35%, var(--line));
+  background: color-mix(in srgb, var(--spine) 8%, var(--surface)); color: color-mix(in srgb, var(--spine) 40%, white);
+  transition: background 0.15s, transform 0.15s;
+}
+.exams-tab:hover { transform: translateX(2px); background: color-mix(in srgb, var(--spine) 16%, var(--surface)); }
+.exams-tab.active { background: var(--spine); color: #fff; border-color: transparent; box-shadow: 0 0 18px color-mix(in srgb, var(--spine) 45%, transparent); }
+.pill.ex-pendiente { background: color-mix(in srgb, #3fb6ff 18%, transparent); color: #7dd0ff; }
+.pill.ex-en-curso { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.pill.ex-sin-corregir { background: color-mix(in srgb, var(--c1) 18%, transparent); color: var(--c1); }
+.grade-badge {
+  font: 700 17px var(--display); min-width: 46px; padding: 4px 10px; border-radius: 12px; text-align: center;
+  border: 1px solid currentColor; background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.grade-badge.big { font-size: 34px; padding: 6px 16px; border-radius: 16px; box-shadow: 0 0 24px color-mix(in srgb, currentColor 30%, transparent); }
+.g-good { color: var(--ok); }
+.g-mid { color: var(--warn); }
+.g-bad { color: var(--danger); }
+.trend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.trend-step { display: inline-flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 19px; }
+.trend .up { color: var(--ok); } .trend .down { color: var(--danger); }
+.exam-import { display: grid; gap: 12px; }
+.field { display: grid; gap: 5px; }
+.field > span { font-size: 13px; color: var(--muted); font-weight: 500; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface-2); font-size: 14px; }
+.chip[aria-pressed='true'] { background: color-mix(in srgb, var(--c2) 25%, transparent); border-color: var(--c2); color: #fff; }
+
+.exam-head { display: flex; align-items: center; gap: 14px; width: 100%; }
+.exam-head .page-title { padding-right: 0; font-size: clamp(26px, 3.4vw, 34px); }
+.exam-head > div:first-child { flex: 1; min-width: 0; }
+.exam-head .eyebrow { color: color-mix(in srgb, var(--spine) 60%, white); }
+.exam-start { display: grid; justify-items: center; text-align: center; gap: 14px; padding: 36px 22px; max-width: 560px; margin: 0 auto; width: 100%; }
+.exam-start > .icon { color: var(--spine); }
+.exam-start p { margin: 0; color: var(--muted); }
+.primary.big { padding: 12px 30px; font-size: 18px; }
+.exam-bar {
+  position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px;
+  border-radius: 14px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--spine) 40%, var(--line));
+}
+.exam-bar .clock { display: inline-flex; align-items: center; gap: 8px; font: 700 22px var(--mono); }
+.exam-bar .muted { flex: 1; }
+.exam-bar.over { border-color: var(--danger); }
+.exam-bar.over .clock { color: var(--danger); }
+.exam-work { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.exam-paper { max-height: 78vh; overflow: auto; }
+.exam-answers { display: grid; gap: 6px; position: sticky; top: 80px; }
+.exam-answers textarea { min-height: 70vh; resize: vertical; font: 16px/1.6 var(--body); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: paso; }
+.steps li {
+  counter-increment: paso; display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+  border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
+}
+.steps li::before {
+  content: counter(paso); flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 15px var(--mono); background: color-mix(in srgb, var(--spine) 25%, transparent); color: #fff;
+}
+.steps li.done::before { content: '✓'; background: var(--ok); color: #000; }
+.steps li > div { flex: 1; }
+.steps p { margin: 2px 0 0; }
+.correction-input { width: 100%; resize: vertical; font: inherit; }
+.correction-foot { justify-content: space-between; }
+.grade-field { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.grade-field input { width: 70px; text-align: center; font: 700 18px var(--display); }
+.fold { border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; background: var(--surface); }
+.fold summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--muted); list-style: none; }
+.fold summary::-webkit-details-marker { display: none; }
+.fold[open] summary { color: var(--fg); margin-bottom: 10px; }
+.fold .paper { padding: 18px; }
+.answers-text { white-space: pre-wrap; font: 16px/1.6 var(--body); margin: 0; }
+.exam-meta::first-letter { text-transform: uppercase; }
+@media (max-width: 760px) {
+  .exam-work { grid-template-columns: 1fr; }
+  .exam-paper { max-height: none; }
+  .exam-answers { position: static; }
+  .exam-answers textarea { min-height: 40vh; }
+  .exam-bar .muted { display: none; }
+  .exam-bar .clock { flex: 1; }
+  .steps li { flex-wrap: wrap; }
+  .grade-badge.big { font-size: 26px; }
+}

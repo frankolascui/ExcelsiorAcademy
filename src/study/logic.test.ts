@@ -51,6 +51,8 @@ describe('daysUntil', () => {
 
 describe('rutas', () => {
   const casos: Route[] = [
+    { view: 'simulacros', subjectId: 's1' },
+    { view: 'simulacro', subjectId: 's1', examId: 'e1' },
     { view: 'estanteria' },
     { view: 'asignatura', subjectId: 's1' },
     { view: 'asignatura', subjectId: 's1', topicId: 't1' },

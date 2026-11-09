@@ -9,13 +9,14 @@ import { tidyText } from '../study/format';
 import { sfx } from '../sfx';
 import { askConfirm, askText } from './Dialog';
 import { CardsPanel } from './CardsPanel';
+import { ExamsPanel } from './Exams';
 import { Icon } from './Icon';
 import { DropZone, Menu, Modal } from './Kit';
 import { LEVELS } from '../study/srs';
 import type { Level } from '../study/types';
 
 /** El archivador de una asignatura: separadores (temas) a la izquierda y hojas a la derecha. */
-export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: string }) {
+export function Binder({ subjectId, topicId, section }: { subjectId: string; topicId?: string; section?: 'simulacros' }) {
   const [subject, setSubject] = useState<Subject | null>(null);
   const [topics, setTopics] = useState<Topic[] | null>(null);
   const [newTopic, setNewTopic] = useState('');
@@ -29,7 +30,7 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
 
   const sorted = topics ? byPosition(topics) : [];
   // Si no has elegido tema, se abre el primero.
-  const current = sorted.find((t) => t.id === topicId) ?? sorted[0];
+  const current = section ? undefined : sorted.find((t) => t.id === topicId) ?? sorted[0];
 
   async function act(fn: () => Promise<unknown>, sound: () => void = sfx.drop) {
     try { await fn(); sound(); await reloadTopics(); } catch (err) { setError((err as Error).message); sfx.error(); }
@@ -78,10 +79,15 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
             <button className="primary icon-only" title="Añadir tema" aria-label="Añadir tema"><Icon name="plus" /></button>
           </form>
           {sorted.length > 1 && <MixReview subjectId={subjectId} topics={sorted} />}
+          <a className={section ? 'exams-tab active' : 'exams-tab'} href={routeToHash({ view: 'simulacros', subjectId })} onClick={() => !section && sfx.page()}>
+            <Icon name="exam" size={18} /> Simulacros
+          </a>
         </aside>
 
         <div className="sheet-area">
-          {current ? (
+          {section ? (
+            <ExamsPanel subjectId={subjectId} topics={sorted} />
+          ) : current ? (
             <TopicPanel
               key={current.id}
               subjectId={subjectId}

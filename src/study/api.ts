@@ -2,7 +2,7 @@
 // No hace falta enviar user_id: la base de datos lo pone sola (default auth.uid())
 // y las reglas por fila impiden tocar filas de otro alumno.
 import { sb } from '../cloud';
-import type { CardRow, Page, Subject, Topic } from './types';
+import type { CardRow, Exam, Page, Subject, Topic } from './types';
 
 function check<T>(res: { data: T | null; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -130,4 +130,24 @@ export async function saveReview(
     sb().from('study_cards').update(update).eq('id', cardId).then(check),
     sb().from('study_reviews').insert({ card_id: cardId, ...log }).then(check),
   ]);
+}
+
+// ---------- Simulacros ----------
+// En la lista no se descargan enunciado, respuestas ni corrección (pueden ser largos).
+export type ExamSummary = Omit<Exam, 'statement' | 'answers' | 'correction'>;
+const EXAM_SUMMARY = 'id, subject_id, title, topic_ids, time_limit_min, started_at, finished_at, duration_sec, grade, created_at';
+export async function listExams(subjectId: string): Promise<ExamSummary[]> {
+  return check(await sb().from('study_exams').select(EXAM_SUMMARY).eq('subject_id', subjectId).order('created_at', { ascending: false }));
+}
+export async function getExam(id: string): Promise<Exam> {
+  return check(await sb().from('study_exams').select('*').eq('id', id).single());
+}
+export async function createExam(e: Pick<Exam, 'subject_id' | 'title' | 'statement' | 'topic_ids' | 'time_limit_min'>): Promise<ExamSummary> {
+  return check(await sb().from('study_exams').insert(e).select(EXAM_SUMMARY).single());
+}
+export async function updateExam(id: string, patch: Partial<Omit<Exam, 'id' | 'subject_id' | 'created_at'>>) {
+  check(await sb().from('study_exams').update(patch).eq('id', id));
+}
+export async function deleteExam(id: string) {
+  check(await sb().from('study_exams').delete().eq('id', id));
 }

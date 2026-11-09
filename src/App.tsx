@@ -7,6 +7,7 @@ import { Login } from './ui/Login';
 import { PageView } from './ui/PageView';
 import { Review } from './ui/Review';
 import { DialogHost } from './ui/Dialog';
+import { ExamView } from './ui/ExamView';
 import { Shelf } from './ui/Shelf';
 
 /** La ruta actual sale de la parte de la dirección después de #. */
@@ -42,6 +43,8 @@ export default function App() {
       {session === null && <Login />}
       {session && route.view === 'estanteria' && <Shelf />}
       {session && route.view === 'asignatura' && <Binder subjectId={route.subjectId} topicId={route.topicId} />}
+      {session && route.view === 'simulacros' && <Binder subjectId={route.subjectId} section="simulacros" />}
+      {session && route.view === 'simulacro' && <ExamView subjectId={route.subjectId} examId={route.examId} />}
       {session && route.view === 'repasar' && <Review key={location.hash} subjectId={route.subjectId} topicIds={route.topicIds} />}
       {session && route.view === 'hoja' && (
         <PageView subjectId={route.subjectId} topicId={route.topicId} pageId={route.pageId} edit={route.edit} />

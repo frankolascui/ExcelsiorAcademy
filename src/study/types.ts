@@ -45,3 +45,20 @@ export interface CardRow {
   last_review: string | null;
   created_at: string;
 }
+
+/** Un simulacro (supabase/04-simulacros.sql). */
+export interface Exam {
+  id: string;
+  subject_id: string;
+  title: string;
+  statement: string; // enunciado en Markdown
+  topic_ids: string[];
+  time_limit_min: number | null;
+  answers: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_sec: number | null;
+  correction: string; // Markdown
+  grade: number | null; // sobre 10
+  created_at: string;
+}
