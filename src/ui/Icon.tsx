@@ -19,6 +19,9 @@ const PATHS = {
   more: 'M5 12h.01M12 12h.01M19 12h.01',
   close: 'M6 6l12 12M18 6L6 18',
   download: 'M12 4v12M7 11l5 5 5-5M5 20h14',
+  exam: 'M9 4h6v3H9zM7 5H5v16h14V5h-2M8 12l2 2 4-4M8 17h8',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
 } as const;
 

@@ -47,4 +47,7 @@ describe('plainPreview', () => {
     expect(plainPreview('## Título con _cursiva_ y `code`')).toBe('Título con cursiva y code');
     expect(plainPreview('Área: $\\pi r^2$')).toBe('Área: \\pi r^2');
   });
+  it('una línea que empieza en negrita no es una viñeta', () => {
+    expect(tidyText('**Total: 10 puntos.** Sin apuntes.\n* uno')).toBe('**Total: 10 puntos.** Sin apuntes.\n- uno\n');
+  });
 });

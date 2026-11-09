@@ -3,7 +3,7 @@
 import GithubSlugger from 'github-slugger';
 
 // Símbolos que la gente usa como viñetas al copiar de Word, PDF o el móvil.
-const BULLET = /^(\s*)(?:[•●◦○▪▫■□·‣⁃➤➢►▶→⇒✓✔︎✗*]|[-–—](?=\s))\s*/;
+const BULLET = /^(\s*)(?:[•●◦○▪▫■□·‣⁃➤➢►▶→⇒✓✔︎✗]|[-–—*](?=\s))\s*/; // «*» solo si va seguido de espacio: «**negrita**» no es viñeta
 const NUMBERED = /^(\s*)(\d{1,2})[).]\s+/;
 const LETTERED = /^(\s*)([a-zA-Z])\)\s+/;
 

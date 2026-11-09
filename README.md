@@ -10,6 +10,8 @@ El SQL de cada paso está en [supabase/](supabase/). Se ejecuta una vez en *Supa
 
 1. `01-resumenes.sql`: asignaturas, temas y hojas (paso 3).
 2. `02-flashcards.sql`: tarjetas y su historial de repasos (paso 4).
+3. `03-niveles.sql`: nivel de exigencia por asignatura (paso 6).
+4. `04-simulacros.sql`: simulacros con tus respuestas, la corrección y la nota (paso 8).
 
 ## Probar en GitHub Pages (gratis)
 
