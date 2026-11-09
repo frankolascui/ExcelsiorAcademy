@@ -1,9 +1,13 @@
 // Las tres piezas del archivador, igual que las tablas de supabase/01-resumenes.sql.
+/** Nivel de exigencia de una asignatura (supabase/03-niveles.sql). */
+export type Level = 'minimo' | 'equilibrado' | 'detalle';
+
 export interface Subject {
   id: string;
   name: string;
   color: string;
   position: number;
+  level: Level;
 }
 
 export interface Topic {

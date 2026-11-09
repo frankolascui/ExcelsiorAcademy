@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { listAllTopics, listSubjects, loadCandidates, newDoneToday, saveReview } from '../study/api';
+import { listAllTopics, listSubjects, loadDue, loadNew, newTopicsToday, saveReview } from '../study/api';
 import { routeToHash } from '../study/logic';
-import { answer, buildQueue, countsFor, GRADES, NEW_PER_DAY, previewIntervals, requeueIndex, sessionSummary } from '../study/srs';
-import type { CardRow, Subject, Topic } from '../study/types';
+import { answer, buildQueue, countsFor, GRADES, newRoom, previewIntervals, requeueIndex, sessionSummary } from '../study/srs';
+import type { CardRow, Level, Subject, Topic } from '../study/types';
 import type { Grade } from 'ts-fsrs';
 import { sfx } from '../sfx';
 import { friendly } from './CardsPanel';
@@ -10,19 +10,31 @@ import { Icon } from './Icon';
 
 const Markdown = lazy(() => import('./Markdown').then((m) => ({ default: m.Markdown })));
 
-/** Qué temas entran en el repaso: uno, los de una asignatura o todos (null). */
-async function scopeTopics(subjectId?: string, topicIds?: string[]): Promise<{ ids: string[] | null; topics: Topic[] }> {
-  const topics = await listAllTopics();
-  if (topicIds?.length) return { ids: topicIds, topics };
-  if (subjectId) return { ids: topics.filter((t) => t.subject_id === subjectId).map((t) => t.id), topics };
-  return { ids: null, topics };
-}
-
-/** Cola de hoy para un ámbito, respetando el límite diario de nuevas. */
+/**
+ * Cola de hoy para un ámbito (unos temas, una asignatura o todo):
+ * 1. las tarjetas que ya tocan;
+ * 2. las nuevas de cada asignatura, hasta el límite de su nivel menos las que ya empezaste hoy;
+ * 3. todo intercalado por temas (buildQueue).
+ */
 export async function loadQueue(subjectId?: string, topicIds?: string[]) {
-  const [{ ids, topics }, doneNew] = await Promise.all([scopeTopics(subjectId, topicIds), newDoneToday()]);
-  const candidates = ids && ids.length === 0 ? [] : await loadCandidates(ids, NEW_PER_DAY - doneNew);
-  return { queue: buildQueue(candidates, new Date(), doneNew), topics };
+  const [topics, subjects, startedToday] = await Promise.all([listAllTopics(), listSubjects(), newTopicsToday()]);
+  const subjectOf = new Map(topics.map((t) => [t.id, t.subject_id]));
+  const levelOf = new Map<string, Level>(subjects.map((s) => [s.id, s.level ?? 'equilibrado']));
+
+  const inScope = topicIds?.length ? topicIds : subjectId ? topics.filter((t) => t.subject_id === subjectId).map((t) => t.id) : null;
+  const scopeTopics = inScope ?? topics.map((t) => t.id);
+
+  const done = new Map<string, number>();
+  for (const tid of startedToday) { const s = subjectOf.get(tid); if (s) done.set(s, (done.get(s) ?? 0) + 1); }
+  const room = newRoom(levelOf, done);
+
+  const [due, ...fresh] = await Promise.all([
+    scopeTopics.length ? loadDue(inScope) : Promise.resolve([]),
+    ...[...room].map(([sid, n]) => loadNew(scopeTopics.filter((t) => subjectOf.get(t) === sid), n)),
+  ]);
+  // El límite ya se ha aplicado al pedir las nuevas: aquí solo se ordena e intercala.
+  const queue = buildQueue([...due, ...fresh.flat()], new Date(), 0, Infinity);
+  return { queue, topics, levelOfTopic: (tid: string): Level => levelOf.get(subjectOf.get(tid) ?? '') ?? 'equilibrado' };
 }
 
 const SOUND: Record<number, () => void> = { 1: sfx.uncheck, 2: sfx.tick, 3: sfx.check, 4: sfx.confirm };
@@ -31,6 +43,7 @@ const SOUND: Record<number, () => void> = { 1: sfx.uncheck, 2: sfx.tick, 3: sfx.
 export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?: string[] }) {
   const [queue, setQueue] = useState<CardRow[] | null>(null);
   const [topics, setTopics] = useState<Map<string, Topic>>(new Map());
+  const levelOf = useRef<(topicId: string) => Level>(() => 'equilibrado');
   const [revealed, setRevealed] = useState(false);
   const [ratings, setRatings] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +52,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
 
   useEffect(() => {
     loadQueue(subjectId, topicIds)
-      .then(({ queue, topics }) => { setQueue(queue); setTopics(new Map(topics.map((t) => [t.id, t]))); shownAt.current = Date.now(); })
+      .then(({ queue, topics, levelOfTopic }) => { levelOf.current = levelOfTopic; setQueue(queue); setTopics(new Map(topics.map((t) => [t.id, t]))); shownAt.current = Date.now(); })
       .catch((e) => setError(friendly(e.message)));
   }, [subjectId, topicIds?.join(',')]);
 
@@ -50,7 +63,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
   const rate = useCallback((grade: Grade) => {
     if (!card || !queue || !revealed) return;
     const now = new Date();
-    const next = answer(card, grade, now);
+    const next = answer(card, grade, now, levelOf.current(card.topic_id));
     const rest = queue.slice(1);
     // Si vuelve en pocos minutos (pasos de aprendizaje), se queda en esta sesión.
     const at = requeueIndex(new Date(next.due), now, rest.length);
@@ -118,7 +131,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
 
   const c = countsFor(queue);
   const topic = topics.get(card.topic_id);
-  const intervals = revealed ? previewIntervals(card, new Date()) : null;
+  const intervals = revealed ? previewIntervals(card, new Date(), levelOf.current(card.topic_id)) : null;
 
   return (
     <section className="review">

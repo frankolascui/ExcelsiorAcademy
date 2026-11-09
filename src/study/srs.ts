@@ -1,7 +1,7 @@
 // Repetición espaciada con FSRS (el algoritmo que usa Anki), mediante la librería ts-fsrs.
 // Aquí solo hay lógica pura: decide qué toca hoy y cuándo vuelve cada tarjeta. Se prueba en srs.test.ts.
 import { fsrs, generatorParameters, Rating, State, type Card, type Grade } from 'ts-fsrs';
-import type { CardRow } from './types';
+import type { CardRow, Level } from './types';
 
 /**
  * Ajustes del algoritmo.
@@ -9,9 +9,30 @@ import type { CardRow } from './types';
  * - enable_fuzz: mueve un poco las fechas para que las tarjetas creadas juntas no vuelvan todas el mismo día.
  * - learning_steps: una tarjeta nueva vuelve a los 1 y 10 minutos antes de pasar a días.
  */
-export const scheduler = fsrs(generatorParameters({ request_retention: 0.9, enable_fuzz: true, learning_steps: ['1m', '10m'], relearning_steps: ['10m'] }));
-
 export const NEW_PER_DAY = 20;
+
+/**
+ * Niveles de exigencia. Cada asignatura tiene uno y cambia dos números:
+ * - retention: probabilidad de recordar la tarjeta cuando FSRS te la pregunta. Más alta = repasos más seguidos.
+ * - newPerDay: tarjetas nuevas al día de esa asignatura.
+ */
+export const LEVELS: Record<Level, { label: string; hint: string; retention: number; newPerDay: number }> = {
+  minimo: { label: 'Mínimo', hint: 'Aprobar con el menor tiempo posible', retention: 0.8, newPerDay: 10 },
+  equilibrado: { label: 'Equilibrado', hint: 'Lo importante de cada tema', retention: 0.9, newPerDay: 20 },
+  detalle: { label: 'Al detalle', hint: 'Ir a por el 10, hasta el último detalle', retention: 0.95, newPerDay: 30 },
+};
+
+const schedulers = new Map<Level, ReturnType<typeof fsrs>>();
+/** Un planificador FSRS por nivel (solo cambia la retención objetivo). */
+export function schedulerFor(level: Level = 'equilibrado') {
+  let s = schedulers.get(level);
+  if (!s) {
+    s = fsrs(generatorParameters({ request_retention: LEVELS[level].retention, enable_fuzz: true, learning_steps: ['1m', '10m'], relearning_steps: ['10m'] }));
+    schedulers.set(level, s);
+  }
+  return s;
+}
+export const scheduler = schedulerFor('equilibrado');
 
 export const GRADES: { grade: Grade; label: string; key: string }[] = [
   { grade: Rating.Again, label: 'Otra vez', key: '1' },
@@ -53,14 +74,14 @@ export function fromCard(c: Card): Omit<CardRow, 'id' | 'topic_id' | 'front' | '
 }
 
 /** Qué pasa con la tarjeta si respondes `grade` ahora. */
-export function answer(row: CardRow, grade: Grade, now: Date) {
-  const { card } = scheduler.next(toCard(row), now, grade);
+export function answer(row: CardRow, grade: Grade, now: Date, level: Level = 'equilibrado') {
+  const { card } = schedulerFor(level).next(toCard(row), now, grade);
   return fromCard(card);
 }
 
 /** Intervalo de cada botón, para enseñarlo encima («10 min», «3 d»…). */
-export function previewIntervals(row: CardRow, now: Date): Record<Grade, string> {
-  const preview = scheduler.repeat(toCard(row), now);
+export function previewIntervals(row: CardRow, now: Date, level: Level = 'equilibrado'): Record<Grade, string> {
+  const preview = schedulerFor(level).repeat(toCard(row), now);
   const out = {} as Record<Grade, string>;
   for (const { grade } of GRADES) out[grade] = formatInterval(preview[grade].card.due.getTime() - now.getTime());
   return out;
@@ -171,4 +192,14 @@ export function sessionSummary(ratings: readonly number[]) {
     // Porcentaje de aciertos: todo lo que no sea «Otra vez» cuenta como recordado (como en Anki).
     retention: total ? Math.round(((total - again) / total) * 100) : 0,
   };
+}
+
+/**
+ * Cuántas nuevas quedan hoy en cada asignatura: su límite según el nivel menos las que ya has empezado hoy.
+ * `doneBySubject` = nuevas estudiadas hoy por asignatura.
+ */
+export function newRoom(levels: ReadonlyMap<string, Level>, doneBySubject: ReadonlyMap<string, number>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [subjectId, level] of levels) out.set(subjectId, Math.max(0, LEVELS[level].newPerDay - (doneBySubject.get(subjectId) ?? 0)));
+  return out;
 }

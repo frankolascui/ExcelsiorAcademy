@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  createPage, createTopic, deletePage, deleteTopic, listPages, listSubjects, listTopics,
+  createPage, createTopic, updateSubject, deletePage, deleteTopic, listPages, listSubjects, listTopics,
   savePositions, updateTopic, type PageSummary,
 } from '../study/api';
 import { byPosition, nextPosition, routeToHash, swapWithNeighbour, titleFromMarkdown } from '../study/logic';
@@ -10,6 +10,8 @@ import { sfx } from '../sfx';
 import { askConfirm, askText } from './Dialog';
 import { CardsPanel } from './CardsPanel';
 import { Icon, IconButton } from './Icon';
+import { LEVELS } from '../study/srs';
+import type { Level } from '../study/types';
 
 /** El archivador de una asignatura: separadores (temas) a la izquierda y hojas a la derecha. */
 export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: string }) {
@@ -52,6 +54,7 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
         <span className="sep">›</span> <span>{subject?.name ?? '…'}</span>
       </nav>
       <h1 className="binder-title">{subject?.name ?? '…'}</h1>
+      {subject && <LevelPicker subject={subject} onChange={(level) => setSubject({ ...subject, level })} onError={setError} />}
 
       <div className="binder-open">
         <aside className="tabs">
@@ -236,5 +239,37 @@ function MixReview({ subjectId, topics }: { subjectId: string; topics: Topic[] }
         <Icon name="play" /> Repasar {ids.length} {ids.length === 1 ? 'tema' : 'temas'}
       </a>
     </details>
+  );
+}
+
+/** Nivel de exigencia de la asignatura: cambia la retención objetivo y las nuevas al día (ver LEVELS en srs.ts). */
+function LevelPicker({ subject, onChange, onError }: { subject: Subject; onChange: (l: Level) => void; onError: (msg: string) => void }) {
+  async function pick(level: Level) {
+    if (level === subject.level) return;
+    const before = subject.level;
+    onChange(level); // se ve al instante; si falla, se deshace
+    try {
+      await updateSubject(subject.id, { level });
+      sfx.check();
+    } catch (e) {
+      onChange(before);
+      sfx.error();
+      const msg = (e as Error).message;
+      onError(/level/.test(msg) ? 'Para elegir nivel, ejecuta antes supabase/03-niveles.sql en el SQL Editor de Supabase.' : msg);
+    }
+  }
+  return (
+    <div className="level-picker" role="radiogroup" aria-label="Nivel de exigencia">
+      <span className="eyebrow">Nivel de exigencia</span>
+      <div className="level-options">
+        {(Object.keys(LEVELS) as Level[]).map((l) => (
+          <button key={l} type="button" role="radio" aria-checked={subject.level === l} onClick={() => pick(l)}>
+            <strong>{LEVELS[l].label}</strong>
+            <span className="level-hint">{LEVELS[l].hint}</span>
+            <span className="level-meta">{Math.round(LEVELS[l].retention * 100)} % · {LEVELS[l].newPerDay} nuevas/día</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

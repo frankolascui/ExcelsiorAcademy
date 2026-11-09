@@ -10,11 +10,18 @@ function check<T>(res: { data: T | null; error: { message: string } | null }): T
 }
 
 // ---------- Asignaturas ----------
+const SUBJECT_COLS = 'id, name, color, position, level';
 export async function listSubjects(): Promise<Subject[]> {
-  return check(await sb().from('study_subjects').select('id, name, color, position').order('position'));
+  const res = await sb().from('study_subjects').select(SUBJECT_COLS).order('position');
+  // Si aún no se ha ejecutado 03-niveles.sql, la columna «level» no existe: seguimos con el nivel por defecto.
+  if (res.error && /level/.test(res.error.message)) {
+    const old = check(await sb().from('study_subjects').select('id, name, color, position').order('position')) as Omit<Subject, 'level'>[];
+    return old.map((x) => ({ ...x, level: 'equilibrado' as const }));
+  }
+  return check(res);
 }
-export async function createSubject(s: Omit<Subject, 'id'>): Promise<Subject> {
-  return check(await sb().from('study_subjects').insert(s).select('id, name, color, position').single());
+export async function createSubject(s: Omit<Subject, 'id' | 'level'>): Promise<Subject> {
+  return check(await sb().from('study_subjects').insert(s).select(SUBJECT_COLS).single());
 }
 export async function updateSubject(id: string, patch: Partial<Omit<Subject, 'id'>>) {
   check(await sb().from('study_subjects').update(patch).eq('id', id));
@@ -92,24 +99,25 @@ export function startOfToday(now = new Date()): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
-/** Cuántas tarjetas NUEVAS has estudiado hoy (para el límite diario). */
-export async function newDoneToday(): Promise<number> {
-  const res = await sb().from('study_reviews').select('id', { count: 'exact', head: true })
-    .eq('state', 0).gte('reviewed_at', startOfToday().toISOString());
-  if (res.error) throw new Error(res.error.message);
-  return res.count ?? 0;
+/** Tema de cada tarjeta NUEVA que has empezado hoy (para el límite diario de cada asignatura). */
+export async function newTopicsToday(): Promise<string[]> {
+  // study_cards(topic_id) trae el tema de la tarjeta de cada repaso, en la misma consulta.
+  const rows = check(await sb().from('study_reviews').select('card_id, study_cards(topic_id)')
+    .eq('state', 0).gte('reviewed_at', startOfToday().toISOString())) as unknown as { study_cards: { topic_id: string } | null }[];
+  return rows.map((r) => r.study_cards?.topic_id).filter((t): t is string => !!t);
 }
 
-/**
- * Tarjetas candidatas para repasar ahora: las que ya tocan y las nuevas (hasta `newLimit`).
- * topicIds = null → de todas tus asignaturas.
- */
-export async function loadCandidates(topicIds: string[] | null, newLimit: number, now = new Date()): Promise<CardRow[]> {
-  let due = sb().from('study_cards').select(CARD_COLS).neq('state', 0).lte('due', now.toISOString()).order('due').limit(1000);
-  let fresh = sb().from('study_cards').select(CARD_COLS).eq('state', 0).order('created_at').limit(Math.max(newLimit, 0));
-  if (topicIds) { due = due.in('topic_id', topicIds); fresh = fresh.in('topic_id', topicIds); }
-  const [a, b] = await Promise.all([due, newLimit > 0 ? fresh : Promise.resolve({ data: [], error: null })]);
-  return [...check(a as { data: CardRow[] | null; error: null }), ...check(b as { data: CardRow[] | null; error: null })];
+/** Tarjetas ya empezadas que tocan ahora. topicIds = null → de todas tus asignaturas. */
+export async function loadDue(topicIds: string[] | null, now = new Date()): Promise<CardRow[]> {
+  let q = sb().from('study_cards').select(CARD_COLS).neq('state', 0).lte('due', now.toISOString()).order('due').limit(1000);
+  if (topicIds) q = q.in('topic_id', topicIds);
+  return check(await q);
+}
+
+/** Las `limit` tarjetas nuevas más antiguas de esos temas. */
+export async function loadNew(topicIds: string[], limit: number): Promise<CardRow[]> {
+  if (limit <= 0 || topicIds.length === 0) return [];
+  return check(await sb().from('study_cards').select(CARD_COLS).eq('state', 0).in('topic_id', topicIds).order('created_at').limit(limit));
 }
 
 /** Guarda una respuesta: el nuevo estado de la tarjeta y una línea en el historial. */
