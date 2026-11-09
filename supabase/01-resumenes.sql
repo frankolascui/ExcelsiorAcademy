@@ -52,14 +52,22 @@ create policy "mis hojas" on public.study_pages for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Un tema solo puede colgar de una asignatura tuya, y una hoja de un tema tuyo.
-create or replace function public.study_check_owner() returns trigger
+-- (Una función por tabla: PostgreSQL no deja leer new.topic_id en una fila de study_topics,
+-- aunque esa línea no se llegue a ejecutar.)
+create or replace function public.study_check_topic_owner() returns trigger
 language plpgsql security invoker as $$
 begin
-  if tg_table_name = 'study_topics' and not exists (
+  if not exists (
     select 1 from public.study_subjects s where s.id = new.subject_id and s.user_id = new.user_id
   ) then raise exception 'Esa asignatura no es tuya';
   end if;
-  if tg_table_name = 'study_pages' and not exists (
+  return new;
+end $$;
+
+create or replace function public.study_check_page_owner() returns trigger
+language plpgsql security invoker as $$
+begin
+  if not exists (
     select 1 from public.study_topics t where t.id = new.topic_id and t.user_id = new.user_id
   ) then raise exception 'Ese tema no es tuyo';
   end if;
@@ -68,10 +76,10 @@ end $$;
 
 drop trigger if exists study_topics_owner on public.study_topics;
 create trigger study_topics_owner before insert or update on public.study_topics
-  for each row execute function public.study_check_owner();
+  for each row execute function public.study_check_topic_owner();
 drop trigger if exists study_pages_owner on public.study_pages;
 create trigger study_pages_owner before insert or update on public.study_pages
-  for each row execute function public.study_check_owner();
+  for each row execute function public.study_check_page_owner();
 
 -- La fecha de la última edición de una hoja se pone sola.
 create or replace function public.study_touch() returns trigger
