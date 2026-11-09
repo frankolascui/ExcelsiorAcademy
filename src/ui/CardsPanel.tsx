@@ -5,6 +5,7 @@ import { dueLabel, parseCardLines } from '../study/srs';
 import { plainPreview } from '../study/format';
 import type { CardRow } from '../study/types';
 import { sfx } from '../sfx';
+import { Icon, IconButton } from './Icon';
 
 /** Las flashcards de un tema: crear, editar, borrar, importar y lanzar el repaso. */
 export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId: string }) {
@@ -56,10 +57,10 @@ export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId:
         </div>
         <a
           className={dueNow + fresh ? 'button primary' : 'button'}
-          href={routeToHash({ view: 'repasar', subjectId, topicId })}
+          href={routeToHash({ view: 'repasar', subjectId, topicIds: [topicId] })}
           onClick={() => sfx.open()}
         >
-          ▶ Repasar este tema
+          <Icon name="play" /> Repasar este tema
         </a>
       </div>
 
@@ -67,7 +68,7 @@ export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId:
         <textarea ref={frontRef} placeholder="Pregunta (anverso)" value={front} onChange={(e) => setFront(e.target.value)} onKeyDown={ctrlEnter} rows={2} maxLength={4000} />
         <textarea placeholder="Respuesta (reverso)" value={back} onChange={(e) => setBack(e.target.value)} onKeyDown={ctrlEnter} rows={2} maxLength={8000} />
         <div className="row">
-          <button className="primary" disabled={!front.trim()}>+ Añadir tarjeta</button>
+          <button className="primary" disabled={!front.trim()}><Icon name="plus" /> Añadir tarjeta</button>
           <span className="muted small">Ctrl+Enter para añadir rápido. Admite Markdown y fórmulas $x^2$.</span>
         </div>
       </form>
@@ -88,8 +89,8 @@ export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId:
               </div>
               <span className={`pill s${c.state}`}>{dueLabel(c, now)}</span>
               <div className="row-actions">
-                <button title="Editar" onClick={() => { sfx.tick(); setEditing(c.id); }}>✎</button>
-                <button title="Borrar" onClick={() => { if (confirm('¿Borrar esta tarjeta y su historial?')) act(() => deleteCard(c.id), sfx.remove); }}>🗑</button>
+                <IconButton icon="edit" label="Editar tarjeta" onClick={() => { sfx.tick(); setEditing(c.id); }} />
+                <IconButton icon="trash" label="Borrar tarjeta" danger onClick={() => { if (confirm('¿Borrar esta tarjeta y su historial?')) act(() => deleteCard(c.id), sfx.remove); }} />
               </div>
             </li>
           ),
@@ -105,7 +106,7 @@ export function CardsPanel({ subjectId, topicId }: { subjectId: string; topicId:
         <div className="row">
           <button className="primary" disabled={!parsed.length} onClick={() => importText(bulk)}>Crear {parsed.length || ''} tarjetas</button>
           <label className="button" role="button">
-            Importar .csv / .txt
+            <Icon name="upload" /> Importar .csv / .txt
             <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" hidden onChange={async (e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
@@ -128,7 +129,7 @@ function CardEditor({ card, onSave, onCancel }: { card: CardRow; onSave: (front:
         <textarea value={f} onChange={(e) => setF(e.target.value)} rows={2} autoFocus />
         <textarea value={b} onChange={(e) => setB(e.target.value)} rows={2} />
         <div className="row">
-          <button className="primary" disabled={!f.trim()}>Guardar</button>
+          <button className="primary" disabled={!f.trim()}><Icon name="check" /> Guardar</button>
           <button type="button" className="ghost" onClick={onCancel}>Cancelar</button>
         </div>
       </form>

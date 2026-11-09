@@ -56,6 +56,8 @@ Nueva (0) ──► Aprendiendo (1) ──► Repaso (2) ──► (fallas) ─�
 
 El límite de nuevas existe porque cada tarjeta nueva genera repasos durante semanas: una regla habitual entre usuarios de Anki es contar con unas 10 veces más repasos diarios que nuevas, así que 20 nuevas al día pueden acabar siendo unos 200 repasos diarios. Es una estimación, no un cálculo exacto.
 
+Cuando repasas varios temas a la vez (una asignatura entera, «Repasar todo» o «Repasar mezclando temas»), las tarjetas se **intercalan** (`interleave`): una del tema 1, una del 2, una del 3, otra del 1… Así practicas lo que pasa en el examen: decidir de qué tema es cada pregunta. Por eso conviene tener los temas separados aunque entren juntos en el examen.
+
 Si respondes y la tarjeta vuelve dentro de 20 minutos o menos, se reinserta en esta misma sesión, tres tarjetas más adelante (`requeueIndex`).
 
 ## 6. Cómo se mueve un dato (ejemplo: pulsar "Bien")
@@ -81,3 +83,4 @@ En `src/study/srs.ts`, cambia `NEW_PER_DAY` de 20 a 15. Después mira el panel "
 3. ¿Por qué existe un límite de tarjetas nuevas al día, y de dónde saca la web cuántas llevas hoy?
 4. ¿Qué dos tablas cambian cuando respondes una tarjeta, y qué se guarda en cada una?
 5. ¿Por qué no conviene pulsar "Bien" en una tarjeta que no sabías?
+6. Si mezclas los temas A (3 tarjetas) y B (1 tarjeta), ¿en qué orden salen con `interleave`?

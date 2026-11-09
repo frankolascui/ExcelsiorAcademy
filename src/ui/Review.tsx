@@ -6,20 +6,21 @@ import type { CardRow, Subject, Topic } from '../study/types';
 import type { Grade } from 'ts-fsrs';
 import { sfx } from '../sfx';
 import { friendly } from './CardsPanel';
+import { Icon } from './Icon';
 
 const Markdown = lazy(() => import('./Markdown').then((m) => ({ default: m.Markdown })));
 
 /** Qué temas entran en el repaso: uno, los de una asignatura o todos (null). */
-async function scopeTopics(subjectId?: string, topicId?: string): Promise<{ ids: string[] | null; topics: Topic[] }> {
+async function scopeTopics(subjectId?: string, topicIds?: string[]): Promise<{ ids: string[] | null; topics: Topic[] }> {
   const topics = await listAllTopics();
-  if (topicId) return { ids: [topicId], topics };
+  if (topicIds?.length) return { ids: topicIds, topics };
   if (subjectId) return { ids: topics.filter((t) => t.subject_id === subjectId).map((t) => t.id), topics };
   return { ids: null, topics };
 }
 
 /** Cola de hoy para un ámbito, respetando el límite diario de nuevas. */
-export async function loadQueue(subjectId?: string, topicId?: string) {
-  const [{ ids, topics }, doneNew] = await Promise.all([scopeTopics(subjectId, topicId), newDoneToday()]);
+export async function loadQueue(subjectId?: string, topicIds?: string[]) {
+  const [{ ids, topics }, doneNew] = await Promise.all([scopeTopics(subjectId, topicIds), newDoneToday()]);
   const candidates = ids && ids.length === 0 ? [] : await loadCandidates(ids, NEW_PER_DAY - doneNew);
   return { queue: buildQueue(candidates, new Date(), doneNew), topics };
 }
@@ -27,7 +28,7 @@ export async function loadQueue(subjectId?: string, topicId?: string) {
 const SOUND: Record<number, () => void> = { 1: sfx.uncheck, 2: sfx.tick, 3: sfx.check, 4: sfx.confirm };
 
 /** La sesión de repaso: anverso → «Mostrar respuesta» → 4 botones con el intervalo de cada uno. */
-export function Review({ subjectId, topicId }: { subjectId?: string; topicId?: string }) {
+export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?: string[] }) {
   const [queue, setQueue] = useState<CardRow[] | null>(null);
   const [topics, setTopics] = useState<Map<string, Topic>>(new Map());
   const [revealed, setRevealed] = useState(false);
@@ -37,10 +38,10 @@ export function Review({ subjectId, topicId }: { subjectId?: string; topicId?: s
   const startedAt = useRef(Date.now());
 
   useEffect(() => {
-    loadQueue(subjectId, topicId)
+    loadQueue(subjectId, topicIds)
       .then(({ queue, topics }) => { setQueue(queue); setTopics(new Map(topics.map((t) => [t.id, t]))); shownAt.current = Date.now(); })
       .catch((e) => setError(friendly(e.message)));
-  }, [subjectId, topicId]);
+  }, [subjectId, topicIds?.join(',')]);
 
   const card = queue?.[0];
 
@@ -80,7 +81,9 @@ export function Review({ subjectId, topicId }: { subjectId?: string; topicId?: s
     return () => removeEventListener('keydown', onKey);
   }, [reveal, rate, revealed]);
 
-  const back = topicId && subjectId ? routeToHash({ view: 'asignatura', subjectId, topicId }) : subjectId ? routeToHash({ view: 'asignatura', subjectId }) : '#/';
+  const back = subjectId
+    ? routeToHash({ view: 'asignatura', subjectId, topicId: topicIds?.length === 1 ? topicIds[0] : undefined })
+    : '#/';
 
   if (error && !queue) return <p className="error">{error}</p>;
   if (!queue) return <p className="muted">Barajando tarjetas…</p>;
@@ -107,7 +110,7 @@ export function Review({ subjectId, topicId }: { subjectId?: string; topicId?: s
             {s.again > 0 && <p className="muted">Fallaste {s.again}: volverán pronto, es normal. Así se fija la memoria.</p>}
           </>
         )}
-        <a className="button primary" href={back}>Volver</a>
+        <a className="button primary" href={back}><Icon name="left" /> Volver</a>
         {error && <p className="error">{error}</p>}
       </section>
     );
@@ -120,7 +123,7 @@ export function Review({ subjectId, topicId }: { subjectId?: string; topicId?: s
   return (
     <section className="review">
       <nav className="crumbs">
-        <a href={back}>← Salir</a>
+        <a className="back-btn" href={back}><Icon name="left" size={16} /> Salir</a>
         <span className="counts" title="Nuevas · Aprendiendo · Repaso">
           <span className="pill new">{c.nuevas}</span>
           <span className="pill learn">{c.aprendiendo}</span>
@@ -189,7 +192,7 @@ export function TodayPanel() {
             </p>
           )}
         </div>
-        {sum > 0 && <a className="button primary" href={routeToHash({ view: 'repasar' })} onClick={() => sfx.open()}>▶ Repasar todo</a>}
+        {sum > 0 && <a className="button primary" href={routeToHash({ view: 'repasar' })} onClick={() => sfx.open()}><Icon name="play" /> Repasar todo</a>}
       </div>
       {data.bySubject.length > 1 && (
         <ul className="today-list">

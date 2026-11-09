@@ -41,7 +41,7 @@ export default function App() {
       {session === null && <Login />}
       {session && route.view === 'estanteria' && <Shelf />}
       {session && route.view === 'asignatura' && <Binder subjectId={route.subjectId} topicId={route.topicId} />}
-      {session && route.view === 'repasar' && <Review key={location.hash} subjectId={route.subjectId} topicId={route.topicId} />}
+      {session && route.view === 'repasar' && <Review key={location.hash} subjectId={route.subjectId} topicIds={route.topicIds} />}
       {session && route.view === 'hoja' && (
         <PageView subjectId={route.subjectId} topicId={route.topicId} pageId={route.pageId} edit={route.edit} />
       )}

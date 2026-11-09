@@ -89,11 +89,30 @@ export function buildQueue(cards: readonly CardRow[], now: Date, newDoneToday: n
     .filter((c) => c.state !== State.New && new Date(c.due) <= now)
     .sort((a, b) => a.due.localeCompare(b.due));
   const room = Math.max(0, newPerDay - newDoneToday);
-  const fresh = cards
-    .filter((c) => c.state === State.New)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at))
-    .slice(0, room);
-  return [...due, ...fresh];
+  const fresh = interleave(
+    cards.filter((c) => c.state === State.New).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+  ).slice(0, room);
+  return [...interleave(due), ...fresh];
+}
+
+/**
+ * Interleaving (práctica intercalada): en vez de hacer todas las tarjetas del tema 1 y luego las del 2,
+ * se van turnando: una del tema 1, una del 2, una del 3, otra del 1… Dentro de cada tema se respeta el orden.
+ * Mezclar temas obliga a tu cerebro a decidir «¿de qué va esto?» en cada tarjeta, y eso mejora el recuerdo
+ * en el examen, donde las preguntas tampoco llegan ordenadas por tema.
+ */
+export function interleave<T extends { topic_id: string }>(cards: readonly T[]): T[] {
+  const groups = new Map<string, T[]>();
+  for (const c of cards) {
+    const g = groups.get(c.topic_id);
+    if (g) g.push(c); else groups.set(c.topic_id, [c]);
+  }
+  const lists = [...groups.values()];
+  const out: T[] = [];
+  for (let i = 0; out.length < cards.length; i++) {
+    for (const l of lists) if (i < l.length) out.push(l[i]);
+  }
+  return out;
 }
 
 /** Cuenta para enseñar en pantalla: nuevas, aprendiendo y repaso que tocan hoy. */

@@ -5,6 +5,7 @@ import { routeToHash } from '../study/logic';
 import { pastedMarkdown } from '../study/paste';
 import type { Page, Subject } from '../study/types';
 import { sfx } from '../sfx';
+import { Icon } from './Icon';
 
 // Las fórmulas (KaTeX) pesan mucho: se cargan solo al abrir una hoja.
 const md = () => import('./Markdown');
@@ -91,6 +92,7 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
   return (
     <section className="stack" style={spine}>
       <nav className="crumbs">
+        <a className="back-btn" href={routeToHash({ view: 'asignatura', subjectId, topicId })} onClick={() => sfx.page()}><Icon name="left" size={16} /> Volver al tema</a>
         <a href="#/">Estantería</a> <span>›</span>
         <a href={routeToHash({ view: 'asignatura', subjectId })}>{subject?.name ?? '…'}</a> <span>›</span>
         <a href={routeToHash({ view: 'asignatura', subjectId, topicId })}>{topicName}</a>
@@ -105,13 +107,13 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
         >
           <div className="row">
             <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} aria-label="Título de la hoja" />
-            <button className="primary" onClick={save} disabled={saving || !dirty}>{saving ? 'Guardando…' : dirty ? 'Guardar' : 'Guardado ✓'}</button>
-            <button className="ghost" onClick={() => go(false)}>Ver</button>
+            <button className="primary" onClick={save} disabled={saving || !dirty}><Icon name="check" /> {saving ? 'Guardando…' : dirty ? 'Guardar' : 'Guardado'}</button>
+            <button className="ghost" onClick={() => go(false)}><Icon name="eye" /> Ver</button>
           </div>
           <div className="row toolbar">
-            <button className="secondary" onClick={formatAll} title="Viñetas, títulos y conceptos en negrita">✨ Ordenar formato</button>
+            <button className="secondary" onClick={formatAll} title="Viñetas, títulos y conceptos en negrita"><Icon name="sparkles" /> Ordenar formato</button>
             {beforeFormat !== null && (
-              <button className="ghost small" onClick={() => { setContent(beforeFormat); setBeforeFormat(null); sfx.undo(); }}>Deshacer</button>
+              <button className="ghost small" onClick={() => { setContent(beforeFormat); setBeforeFormat(null); sfx.undo(); }}><Icon name="undo" size={16} /> Deshacer</button>
             )}
             <span className="muted small">Pega desde Word o Docs sin miedo: se conserva el formato. Ctrl+S guarda.</span>
           </div>
@@ -137,7 +139,7 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
             <header className="paper-head">
               <p className="eyebrow">{topicName}</p>
               <h1 className="page-title">{page.title}</h1>
-              <button className="ghost small" onClick={() => go(true)}>✎ Editar</button>
+              <button className="ghost small" onClick={() => go(true)}><Icon name="edit" size={16} /> Editar</button>
             </header>
             <Suspense fallback={null}><Toc text={page.content} /></Suspense>
             {page.content.trim()

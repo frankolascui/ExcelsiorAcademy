@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rating, State, type Grade } from 'ts-fsrs';
-import { answer, buildQueue, countsFor, formatInterval, parseCardLines, previewIntervals, requeueIndex, dueLabel, sessionSummary } from './srs';
+import { answer, buildQueue, countsFor, formatInterval, parseCardLines, previewIntervals, requeueIndex, dueLabel, sessionSummary, interleave } from './srs';
 import type { CardRow } from './types';
 
 const now = new Date('2026-11-09T10:00:00Z');
@@ -83,5 +83,16 @@ describe('dueLabel y sessionSummary', () => {
   it('resume una sesión', () => {
     expect(sessionSummary([1, 3, 3, 4])).toEqual({ total: 4, again: 1, retention: 75 });
     expect(sessionSummary([])).toEqual({ total: 0, again: 0, retention: 0 });
+  });
+});
+
+describe('interleave', () => {
+  it('turna los temas y respeta el orden dentro de cada uno', () => {
+    const c = (id: string, topic_id: string) => ({ id, topic_id });
+    const r = interleave([c('a1', 'A'), c('a2', 'A'), c('a3', 'A'), c('b1', 'B'), c('c1', 'C'), c('c2', 'C')]);
+    expect(r.map((x) => x.id)).toEqual(['a1', 'b1', 'c1', 'a2', 'c2', 'a3']);
+  });
+  it('una lista vacía da una lista vacía', () => {
+    expect(interleave([])).toEqual([]);
   });
 });
