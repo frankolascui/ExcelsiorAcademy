@@ -15,6 +15,8 @@ const PATHS = {
   sparkles: 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z',
   undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
   page: 'M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h6',
+  cards: 'M3 8h13v12H3zM7 8V4h14v12h-5',
+  shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
 } as const;
 
 export type IconName = keyof typeof PATHS;

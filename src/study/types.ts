@@ -22,3 +22,22 @@ export interface Page {
   position: number;
   updated_at: string;
 }
+
+/** Una flashcard con su estado de memoria (columnas de FSRS). */
+export interface CardRow {
+  id: string;
+  topic_id: string;
+  front: string;
+  back: string;
+  due: string; // fecha ISO
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  learning_steps: number;
+  reps: number;
+  lapses: number;
+  state: 0 | 1 | 2 | 3; // nueva, aprendiendo, repaso, reaprendiendo
+  last_review: string | null;
+  created_at: string;
+}

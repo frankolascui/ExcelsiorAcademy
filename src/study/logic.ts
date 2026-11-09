@@ -63,10 +63,17 @@ export function daysUntil(examDate: string | null, today: Date = new Date()): nu
 export type Route =
   | { view: 'estanteria' }
   | { view: 'asignatura'; subjectId: string; topicId?: string }
-  | { view: 'hoja'; subjectId: string; topicId: string; pageId: string; edit: boolean };
+  | { view: 'hoja'; subjectId: string; topicId: string; pageId: string; edit: boolean }
+  | { view: 'repasar'; subjectId?: string; topicIds?: string[] };
 
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (parts[0] === 'repasar') {
+    const subjectId = parts[1] === 'a' ? parts[2] : undefined;
+    // Varios temas van separados por comas: #/repasar/a/<asignatura>/t/<tema1>,<tema2>
+    const topicIds = subjectId && parts[3] === 't' && parts[4] ? parts[4].split(',').filter(Boolean) : undefined;
+    return { view: 'repasar', subjectId, topicIds };
+  }
   if (parts[0] === 'a' && parts[1]) {
     if (parts[2] === 't' && parts[3] && parts[4] === 'h' && parts[5]) {
       return { view: 'hoja', subjectId: parts[1], topicId: parts[3], pageId: parts[5], edit: parts[6] === 'editar' };
@@ -78,6 +85,7 @@ export function parseRoute(hash: string): Route {
 
 export function routeToHash(r: Route): string {
   if (r.view === 'asignatura') return `#/a/${r.subjectId}${r.topicId ? `/t/${r.topicId}` : ''}`;
+  if (r.view === 'repasar') return `#/repasar${r.subjectId ? `/a/${r.subjectId}` : ''}${r.subjectId && r.topicIds?.length ? `/t/${r.topicIds.join(',')}` : ''}`;
   if (r.view === 'hoja') return `#/a/${r.subjectId}/t/${r.topicId}/h/${r.pageId}${r.edit ? '/editar' : ''}`;
   return '#/';
 }

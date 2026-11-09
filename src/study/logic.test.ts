@@ -56,6 +56,10 @@ describe('rutas', () => {
     { view: 'asignatura', subjectId: 's1', topicId: 't1' },
     { view: 'hoja', subjectId: 's1', topicId: 't1', pageId: 'p1', edit: false },
     { view: 'hoja', subjectId: 's1', topicId: 't1', pageId: 'p1', edit: true },
+    { view: 'repasar' },
+    { view: 'repasar', subjectId: 's1' },
+    { view: 'repasar', subjectId: 's1', topicIds: ['t1'] },
+    { view: 'repasar', subjectId: 's1', topicIds: ['t1', 't2', 't3'] },
   ];
   it.each(casos)('ida y vuelta: %o', (r) => {
     expect(parseRoute(routeToHash(r))).toEqual(r);

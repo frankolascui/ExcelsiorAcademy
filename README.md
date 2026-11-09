@@ -8,6 +8,9 @@ Cómo está hecha, paso a paso: [docs/](docs/). Empieza por [docs/paso-1-montaje
 
 El SQL de cada paso está en [supabase/](supabase/). Se ejecuta una vez en *Supabase → SQL Editor*, en el mismo proyecto que Excelsior RPG. Solo añade tablas `study_*`; no toca nada del juego.
 
+1. `01-resumenes.sql`: asignaturas, temas y hojas (paso 3).
+2. `02-flashcards.sql`: tarjetas y su historial de repasos (paso 4).
+
 ## Probar en GitHub Pages (gratis)
 
 Cada push a `main` o a una rama `paso-*` publica la web en la rama `gh-pages` (`.github/workflows/pages.yml`). Una sola vez: *Settings → Pages → Build and deployment → Deploy from a branch → `gh-pages` / `(root)`*. Dirección: https://frankolascui.github.io/ExcelsiorAcademy/

@@ -5,6 +5,7 @@ import { parseRoute, type Route } from './study/logic';
 import { Binder } from './ui/Binder';
 import { Login } from './ui/Login';
 import { PageView } from './ui/PageView';
+import { Review } from './ui/Review';
 import { Shelf } from './ui/Shelf';
 
 /** La ruta actual sale de la parte de la dirección después de #. */
@@ -40,6 +41,7 @@ export default function App() {
       {session === null && <Login />}
       {session && route.view === 'estanteria' && <Shelf />}
       {session && route.view === 'asignatura' && <Binder subjectId={route.subjectId} topicId={route.topicId} />}
+      {session && route.view === 'repasar' && <Review key={location.hash} subjectId={route.subjectId} topicIds={route.topicIds} />}
       {session && route.view === 'hoja' && (
         <PageView subjectId={route.subjectId} topicId={route.topicId} pageId={route.pageId} edit={route.edit} />
       )}

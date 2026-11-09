@@ -7,6 +7,7 @@ import { byPosition, nextPosition, routeToHash, swapWithNeighbour, titleFromMark
 import type { Subject, Topic } from '../study/types';
 import { tidyText } from '../study/format';
 import { sfx } from '../sfx';
+import { CardsPanel } from './CardsPanel';
 import { Icon, IconButton } from './Icon';
 
 /** El archivador de una asignatura: separadores (temas) a la izquierda y hojas a la derecha. */
@@ -69,6 +70,7 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
             <input placeholder="Nuevo tema" value={newTopic} onChange={(e) => setNewTopic(e.target.value)} maxLength={120} />
             <button className="primary icon-only" title="Añadir tema" aria-label="Añadir tema"><Icon name="plus" /></button>
           </form>
+          {sorted.length > 1 && <MixReview subjectId={subjectId} topics={sorted} />}
         </aside>
 
         <div className="sheet-area">
@@ -112,6 +114,9 @@ interface PanelProps {
 /** Las hojas de un tema, con las acciones del tema arriba. */
 function TopicPanel({ subjectId, topic, onMove, onRename, onDelete }: PanelProps) {
   const [pages, setPages] = useState<PageSummary[] | null>(null);
+  // Pestaña elegida (hojas o tarjetas); se recuerda en este navegador.
+  const [mode, setMode] = useState<'hojas' | 'tarjetas'>(() => { try { return sessionStorage.getItem('modo') === 'tarjetas' ? 'tarjetas' : 'hojas'; } catch { return 'hojas'; } });
+  const pick = (m: 'hojas' | 'tarjetas') => { setMode(m); sfx.page(); try { sessionStorage.setItem('modo', m); } catch { /* sin almacenamiento */ } };
   const [error, setError] = useState<string | null>(null);
   const reload = () => listPages(topic.id).then(setPages).catch((e) => setError(e.message));
   useEffect(() => { reload(); }, [topic.id]);
@@ -156,7 +161,14 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete }: PanelProps
         </div>
       </header>
 
-      {!pages ? (
+      <div className="mode-tabs" role="tablist">
+        <button role="tab" aria-selected={mode === 'hojas'} onClick={() => pick('hojas')}><Icon name="page" size={16} /> Hojas{pages ? ` (${pages.length})` : ''}</button>
+        <button role="tab" aria-selected={mode === 'tarjetas'} onClick={() => pick('tarjetas')}><Icon name="cards" size={16} /> Tarjetas</button>
+      </div>
+
+      {mode === 'tarjetas' ? (
+        <CardsPanel subjectId={subjectId} topicId={topic.id} />
+      ) : !pages ? (
         <p className="muted">Cargando hojas…</p>
       ) : (
         <ul className="pages">
@@ -179,14 +191,47 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete }: PanelProps
         </ul>
       )}
 
-      <div className="row">
+      {mode === 'hojas' && <div className="row">
         <button className="primary" onClick={newPage}><Icon name="plus" /> Hoja nueva</button>
         <label className="button" role="button">
           <Icon name="upload" /> Importar .md
           <input type="file" accept=".md,.markdown,.txt,text/markdown" multiple hidden onChange={(e) => { importFiles(e.target.files); e.target.value = ''; }} />
         </label>
-      </div>
+      </div>}
       {error && <p className="error">{error}</p>}
     </div>
+  );
+}
+
+/**
+ * Repasar varios temas mezclados (interleaving). Útil cuando un examen entra con varios temas:
+ * marcas los que entran y las tarjetas salen turnándose entre ellos.
+ */
+function MixReview({ subjectId, topics }: { subjectId: string; topics: Topic[] }) {
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(topics.map((t) => t.id)));
+  const toggle = (id: string) => {
+    sfx.tick();
+    setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  };
+  const ids = topics.filter((t) => picked.has(t.id)).map((t) => t.id);
+  return (
+    <details className="mix">
+      <summary><Icon name="shuffle" size={16} /> Repasar mezclando temas</summary>
+      <ul>
+        {topics.map((t, i) => (
+          <li key={t.id}>
+            <label><input type="checkbox" checked={picked.has(t.id)} onChange={() => toggle(t.id)} /> {i + 1}. {t.title}</label>
+          </li>
+        ))}
+      </ul>
+      <a
+        className={ids.length ? 'button primary' : 'button disabled'}
+        aria-disabled={!ids.length}
+        href={ids.length ? routeToHash({ view: 'repasar', subjectId, topicIds: ids }) : undefined}
+        onClick={() => ids.length && sfx.open()}
+      >
+        <Icon name="play" /> Repasar {ids.length} {ids.length === 1 ? 'tema' : 'temas'}
+      </a>
+    </details>
   );
 }
