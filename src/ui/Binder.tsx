@@ -7,6 +7,7 @@ import { byPosition, nextPosition, routeToHash, swapWithNeighbour, titleFromMark
 import type { Subject, Topic } from '../study/types';
 import { tidyText } from '../study/format';
 import { sfx } from '../sfx';
+import { askConfirm, askText } from './Dialog';
 import { CardsPanel } from './CardsPanel';
 import { Icon, IconButton } from './Icon';
 
@@ -80,12 +81,13 @@ export function Binder({ subjectId, topicId }: { subjectId: string; topicId?: st
               subjectId={subjectId}
               topic={current}
               onMove={(dir) => act(() => savePositions('study_topics', swapWithNeighbour(topics, current.id, dir)))}
-              onRename={() => {
-                const n = prompt('Nuevo nombre del tema', current.title)?.trim();
+              onTopicsChanged={reloadTopics}
+              onRename={async () => {
+                const n = await askText({ title: 'Renombrar tema', label: 'Nombre del tema', initial: current.title });
                 if (n) act(() => updateTopic(current.id, { title: n }), sfx.saved);
               }}
-              onDelete={() => {
-                if (confirm(`¿Borrar el tema "${current.title}" y todas sus hojas? No se puede deshacer.`)) {
+              onDelete={async () => {
+                if (await askConfirm({ title: `¿Borrar «${current.title}»?`, message: 'Se borrarán también sus hojas y tarjetas. No se puede deshacer.', confirmLabel: 'Borrar tema', danger: true })) {
                   act(async () => {
                     await deleteTopic(current.id);
                     location.hash = routeToHash({ view: 'asignatura', subjectId });
@@ -109,10 +111,11 @@ interface PanelProps {
   onMove: (dir: -1 | 1) => void;
   onRename: () => void;
   onDelete: () => void;
+  onTopicsChanged: () => void;
 }
 
 /** Las hojas de un tema, con las acciones del tema arriba. */
-function TopicPanel({ subjectId, topic, onMove, onRename, onDelete }: PanelProps) {
+function TopicPanel({ subjectId, topic, onMove, onRename, onDelete, onTopicsChanged }: PanelProps) {
   const [pages, setPages] = useState<PageSummary[] | null>(null);
   // Pestaña elegida (hojas o tarjetas); se recuerda en este navegador.
   const [mode, setMode] = useState<'hojas' | 'tarjetas'>(() => { try { return sessionStorage.getItem('modo') === 'tarjetas' ? 'tarjetas' : 'hojas'; } catch { return 'hojas'; } });
@@ -167,7 +170,7 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete }: PanelProps
       </div>
 
       {mode === 'tarjetas' ? (
-        <CardsPanel subjectId={subjectId} topicId={topic.id} />
+        <CardsPanel subjectId={subjectId} topicId={topic.id} onTopicsChanged={onTopicsChanged} />
       ) : !pages ? (
         <p className="muted">Cargando hojas…</p>
       ) : (
@@ -182,8 +185,8 @@ function TopicPanel({ subjectId, topic, onMove, onRename, onDelete }: PanelProps
               <div className="row-actions">
                 <IconButton icon="up" label="Subir hoja" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, -1)))} />
                 <IconButton icon="down" label="Bajar hoja" onClick={() => act(() => savePositions('study_pages', swapWithNeighbour(pages, p.id, 1)))} />
-                <IconButton icon="trash" label="Borrar hoja" danger onClick={() => {
-                  if (confirm(`¿Borrar la hoja "${p.title}"?`)) act(() => deletePage(p.id), sfx.remove);
+                <IconButton icon="trash" label="Borrar hoja" danger onClick={async () => {
+                  if (await askConfirm({ title: `¿Borrar la hoja «${p.title}»?`, message: 'No se puede deshacer.', confirmLabel: 'Borrar hoja', danger: true })) act(() => deletePage(p.id), sfx.remove);
                 }} />
               </div>
             </li>

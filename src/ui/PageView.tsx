@@ -6,6 +6,7 @@ import { pastedMarkdown } from '../study/paste';
 import type { Page, Subject } from '../study/types';
 import { sfx } from '../sfx';
 import { Icon } from './Icon';
+import { askConfirm } from './Dialog';
 
 // Las fórmulas (KaTeX) pesan mucho: se cargan solo al abrir una hoja.
 const md = () => import('./Markdown');
@@ -78,8 +79,8 @@ export function PageView({ subjectId, topicId, pageId, edit }: Props) {
     sfx.check();
   }
 
-  const go = (editMode: boolean) => {
-    if (!editMode && dirty && !confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) return;
+  const go = async (editMode: boolean) => {
+    if (!editMode && dirty && !(await askConfirm({ title: 'Tienes cambios sin guardar', message: 'Si sales ahora, se perderán.', confirmLabel: 'Salir sin guardar', danger: true }))) return;
     if (!editMode && dirty && page) { setTitle(page.title); setContent(page.content); }
     sfx.page();
     location.hash = routeToHash({ view: 'hoja', subjectId, topicId, pageId, edit: editMode });

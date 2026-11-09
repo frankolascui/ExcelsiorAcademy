@@ -71,8 +71,14 @@ export async function listAllTopics(): Promise<Topic[]> {
 export async function listCards(topicId: string): Promise<CardRow[]> {
   return check(await sb().from('study_cards').select(CARD_COLS).eq('topic_id', topicId).order('created_at'));
 }
-export async function createCards(cards: { topic_id: string; front: string; back: string }[]): Promise<void> {
-  if (cards.length) check(await sb().from('study_cards').insert(cards));
+export type NewCard = { topic_id: string; front: string; back: string } & Partial<Omit<CardRow, 'id' | 'topic_id' | 'front' | 'back' | 'created_at'>>;
+/** Crea tarjetas en tandas de 500 (un mazo grande puede tener miles). `onProgress` recibe cuántas van. */
+export async function createCards(cards: NewCard[], onProgress?: (done: number) => void): Promise<void> {
+  for (let i = 0; i < cards.length; i += 500) {
+    // defaultToNull: false → si a una tarjeta le falta una columna (p. ej. las nuevas no traen «due»), se usa el valor por defecto de la tabla.
+    check(await sb().from('study_cards').insert(cards.slice(i, i + 500), { defaultToNull: false }));
+    onProgress?.(Math.min(i + 500, cards.length));
+  }
 }
 export async function updateCard(id: string, patch: Partial<Omit<CardRow, 'id' | 'created_at'>>) {
   check(await sb().from('study_cards').update(patch).eq('id', id));

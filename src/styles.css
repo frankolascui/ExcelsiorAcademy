@@ -424,3 +424,36 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
 .button.disabled { opacity: 0.45; cursor: not-allowed; }
 @media (max-width: 760px) { .mix { margin: 0 0 10px; } }
 .mode-tabs button { display: inline-flex; align-items: center; gap: 7px; }
+
+/* ---------- Ventanas (confirmar / renombrar) ---------- */
+.dialog-backdrop {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+  background: rgba(0, 0, 0, 0.62); backdrop-filter: blur(4px); animation: fade-in 0.12s ease-out;
+}
+.dialog {
+  width: min(440px, 100%); display: grid; gap: 14px; padding: 24px; border-radius: 20px;
+  background: linear-gradient(180deg, #13131c, #0b0b11); border: 1px solid color-mix(in srgb, var(--c2) 45%, var(--line));
+  box-shadow: var(--glow), 0 30px 80px rgba(0, 0, 0, 0.6); animation: pop-in 0.16s ease-out;
+}
+.dialog.danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 20%, transparent), 0 30px 80px rgba(0, 0, 0, 0.6); }
+.dialog h2 { font-family: var(--display); font-size: 22px; line-height: 1.2; }
+.dialog-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.dialog-field { display: grid; gap: 6px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.danger-btn {
+  border-radius: 10px; padding: 10px 16px; font-weight: 700; border: 1px solid transparent; color: #fff;
+  background: linear-gradient(120deg, #fb7185, #e11d48); box-shadow: 0 6px 22px color-mix(in srgb, var(--danger) 35%, transparent);
+}
+.danger-btn:hover { filter: brightness(1.08); }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+
+/* Importar .apkg */
+.apkg { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+.apkg .button { justify-self: start; }
+.apkg-preview { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--c2) 35%, var(--line)); }
+.apkg-preview label { display: flex; gap: 8px; align-items: center; cursor: pointer; flex-wrap: wrap; }
+.apkg-preview input[type='checkbox'], .apkg-preview input[type='radio'] { width: 16px; height: 16px; accent-color: var(--c2); }
+.apkg-preview fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.apkg-decks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 180px; overflow: auto; }
+.apkg-decks li { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; }
