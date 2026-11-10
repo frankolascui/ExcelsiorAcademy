@@ -134,6 +134,12 @@ export function Stats({ subjectId }: { subjectId?: string }) {
           </ul>
         )}
       </div>
+
+      <a className="panel tune-link" href={routeToHash({ view: 'ajustar' })} onClick={() => sfx.open()}>
+        <Icon name="sparkles" />
+        <span><strong>Ajustar FSRS a tu memoria</strong><span className="muted small">Calcula tus propios parámetros con tu historial (a partir de 1000 respuestas).</span></span>
+        <Icon name="right" />
+      </a>
     </section>
   );
 }

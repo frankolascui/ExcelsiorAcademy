@@ -10,6 +10,7 @@ import { DialogHost } from './ui/Dialog';
 import { ExamView } from './ui/ExamView';
 import { Shelf } from './ui/Shelf';
 import { Stats } from './ui/Stats';
+import { Tune } from './ui/Tune';
 
 /** La ruta actual sale de la parte de la dirección después de #. */
 function useRoute(): Route {
@@ -44,6 +45,7 @@ export default function App() {
       {session === null && <Login />}
       {session && route.view === 'estanteria' && <Shelf />}
       {session && route.view === 'asignatura' && <Binder subjectId={route.subjectId} topicId={route.topicId} />}
+      {session && route.view === 'ajustar' && <Tune />}
       {session && route.view === 'estadisticas' && <Stats key={route.subjectId ?? 'todas'} subjectId={route.subjectId} />}
       {session && route.view === 'simulacros' && <Binder subjectId={route.subjectId} section="simulacros" />}
       {session && route.view === 'simulacro' && <ExamView subjectId={route.subjectId} examId={route.examId} />}
