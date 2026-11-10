@@ -64,6 +64,7 @@ export type Route =
   | { view: 'estanteria' }
   | { view: 'asignatura'; subjectId: string; topicId?: string }
   | { view: 'estadisticas'; subjectId?: string }
+  | { view: 'ajustar' }
   | { view: 'simulacros'; subjectId: string }
   | { view: 'simulacro'; subjectId: string; examId: string }
   | { view: 'hoja'; subjectId: string; topicId: string; pageId: string; edit: boolean }
@@ -77,6 +78,7 @@ export function parseRoute(hash: string): Route {
     const topicIds = subjectId && parts[3] === 't' && parts[4] ? parts[4].split(',').filter(Boolean) : undefined;
     return { view: 'repasar', subjectId, topicIds };
   }
+  if (parts[0] === 'ajustar') return { view: 'ajustar' };
   if (parts[0] === 'estadisticas') return { view: 'estadisticas', subjectId: parts[1] === 'a' ? parts[2] : undefined };
   if (parts[0] === 'a' && parts[1]) {
     if (parts[2] === 'simulacros') {
@@ -93,6 +95,7 @@ export function parseRoute(hash: string): Route {
 export function routeToHash(r: Route): string {
   if (r.view === 'asignatura') return `#/a/${r.subjectId}${r.topicId ? `/t/${r.topicId}` : ''}`;
   if (r.view === 'repasar') return `#/repasar${r.subjectId ? `/a/${r.subjectId}` : ''}${r.subjectId && r.topicIds?.length ? `/t/${r.topicIds.join(',')}` : ''}`;
+  if (r.view === 'ajustar') return '#/ajustar';
   if (r.view === 'estadisticas') return `#/estadisticas${r.subjectId ? `/a/${r.subjectId}` : ''}`;
   if (r.view === 'simulacros') return `#/a/${r.subjectId}/simulacros`;
   if (r.view === 'simulacro') return `#/a/${r.subjectId}/simulacros/${r.examId}`;

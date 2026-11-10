@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { countNew, hasCardExtras, listAllTopics, listExamDates, listSubjects, loadDue, loadNew, loadStarted, newTopicsToday, saveReview, undoReview } from '../study/api';
+import { ensureParams } from '../study/params';
 import { examTopics, FINAL_DAYS, finalReview, HORIZON_DAYS, pacedNewPerDay, topicPriority, upcoming } from '../study/plan';
 import { routeToHash } from '../study/logic';
 import { answer, buildQueue, countsFor, becomesLeech, GRADES, LEECH_LAPSES, newRoom, previewIntervals, requeueIndex, sessionSummary } from '../study/srs';
@@ -21,9 +22,9 @@ const Markdown = lazy(() => import('./Markdown').then((m) => ({ default: m.Markd
  */
 export async function loadQueue(subjectId?: string, topicIds?: string[]) {
   const [topics, subjects, startedToday, exams] = await Promise.all([
-    listAllTopics(), listSubjects(), newTopicsToday(),
+    listAllTopics(), listSubjects(), newTopicsToday(), ensureParams(),
     listExamDates().catch(() => [] as ExamDate[]), // si aún no existe la tabla, sin plan
-  ]);
+  ]).then(([t, s, n, , e]) => [t, s, n, e] as const);
   const now = new Date();
   const subjectOf = new Map(topics.map((t) => [t.id, t.subject_id]));
   const levelOf = new Map<string, Level>(subjects.map((s) => [s.id, s.level ?? 'equilibrado']));

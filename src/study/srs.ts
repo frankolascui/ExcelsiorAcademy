@@ -23,16 +23,26 @@ export const LEVELS: Record<Level, { label: string; hint: string; retention: num
 };
 
 const schedulers = new Map<Level, ReturnType<typeof fsrs>>();
-/** Un planificador FSRS por nivel (solo cambia la retención objetivo). */
+let userW: readonly number[] | null = null;
+/**
+ * Parámetros de FSRS ajustados a tu memoria (paso 12), o null para los de por defecto.
+ * Al cambiarlos se rehacen los planificadores.
+ */
+export function setUserParams(w: readonly number[] | null) {
+  userW = w;
+  schedulers.clear();
+}
+export const userParams = () => userW;
+
+/** Un planificador FSRS por nivel (solo cambia la retención objetivo; los parámetros son los tuyos si los has ajustado). */
 export function schedulerFor(level: Level = 'equilibrado') {
   let s = schedulers.get(level);
   if (!s) {
-    s = fsrs(generatorParameters({ request_retention: LEVELS[level].retention, enable_fuzz: true, learning_steps: ['1m', '10m'], relearning_steps: ['10m'] }));
+    s = fsrs(generatorParameters({ request_retention: LEVELS[level].retention, enable_fuzz: true, learning_steps: ['1m', '10m'], relearning_steps: ['10m'], ...(userW ? { w: [...userW] } : {}) }));
     schedulers.set(level, s);
   }
   return s;
 }
-export const scheduler = schedulerFor('equilibrado');
 
 export const GRADES: { grade: Grade; label: string; key: string }[] = [
   { grade: Rating.Again, label: 'Otra vez', key: '1' },

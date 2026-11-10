@@ -729,3 +729,19 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
   .weak-name { flex: 1 1 calc(100% - 30px); }
   .weak-pct { flex: 1; padding-left: 19px; }
 }
+
+/* ---------- Ajustar FSRS (paso 12) ---------- */
+.tune { max-width: 760px; width: 100%; margin: 0 auto; }
+.tune-intro, .tune-wait, .tune-result { padding: 18px; display: grid; gap: 10px; }
+.tune-intro p, .tune-wait p { margin: 0; }
+.tune-status { padding-top: 10px; border-top: 1px solid var(--line); }
+.meter { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--c2) 18%, var(--surface-2)); overflow: hidden; }
+.meter span { display: block; height: 100%; border-radius: 99px; background: var(--c2); }
+.tune-go { justify-self: center; }
+.tune-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tune-table th, .tune-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.tune-table th { font-size: 13px; color: var(--muted); font-weight: 500; }
+.tune-link { display: flex; align-items: center; gap: 14px; padding: 14px 16px; text-decoration: none; transition: border-color 0.15s; }
+.tune-link:hover { border-color: var(--c2); }
+.tune-link > span { flex: 1; display: grid; }
+.tune-link > .icon:first-child { color: var(--c2); }

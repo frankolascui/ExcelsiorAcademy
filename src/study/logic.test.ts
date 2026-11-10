@@ -53,6 +53,7 @@ describe('rutas', () => {
   const casos: Route[] = [
     { view: 'simulacros', subjectId: 's1' },
     { view: 'estadisticas' },
+    { view: 'ajustar' },
     { view: 'estadisticas', subjectId: 's1' },
     { view: 'simulacro', subjectId: 's1', examId: 'e1' },
     { view: 'estanteria' },

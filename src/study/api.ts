@@ -9,6 +9,23 @@ function check<T>(res: { data: T | null; error: { message: string } | null }): T
   return res.data as T;
 }
 
+/**
+ * Supabase devuelve como mucho 1000 filas por consulta (ajuste «Max rows» del proyecto).
+ * Para listas largas (historial, todas las tarjetas) se piden de 1000 en 1000 con range().
+ * La consulta debe tener un orden fijo para que las páginas no se solapen.
+ */
+async function paged(make: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: { message: string } | null }> }, max = 100_000) {
+  const out: unknown[] = [];
+  for (let from = 0; from < max; from += 1000) {
+    const res = await make().range(from, from + 999);
+    if (res.error) return { data: null, error: res.error };
+    const rows = (res.data ?? []) as unknown[];
+    out.push(...rows);
+    if (rows.length < 1000) break;
+  }
+  return { data: out, error: null };
+}
+
 // ---------- Asignaturas ----------
 const SUBJECT_COLS = 'id, name, color, position, level';
 export async function listSubjects(): Promise<Subject[]> {
@@ -211,10 +228,10 @@ export async function deleteExamDate(id: string) {
 export async function countNew(topicIds: string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   if (!topicIds.length) return out;
-  const rows = (await selectCards((_c, extras) => {
-    const q = sb().from('study_cards').select('topic_id').eq('state', 0).in('topic_id', topicIds);
-    return (extras ? q.eq('suspended', false) : q).limit(20000);
-  })) as unknown as { topic_id: string }[];
+  const rows = (await selectCards((_c, extras) => paged(() => {
+    const q = sb().from('study_cards').select('id, topic_id').eq('state', 0).in('topic_id', topicIds);
+    return (extras ? q.eq('suspended', false) : q).order('id');
+  }))) as unknown as { topic_id: string }[];
   for (const r of rows) out.set(r.topic_id, (out.get(r.topic_id) ?? 0) + 1);
   return out;
 }
@@ -223,8 +240,8 @@ export async function countNew(topicIds: string[]): Promise<Map<string, number>>
 export async function loadStarted(topicIds: string[]): Promise<CardRow[]> {
   if (!topicIds.length) return [];
   return selectCards((cols, extras) => {
-    const q = sb().from('study_cards').select(cols).neq('state', 0).in('topic_id', topicIds);
-    return (extras ? q.eq('suspended', false) : q).limit(3000);
+    const q = () => { const b = sb().from('study_cards').select(cols).neq('state', 0).in('topic_id', topicIds); return (extras ? b.eq('suspended', false) : b).order('id'); };
+    return paged(q, 5000);
   });
 }
 
@@ -232,14 +249,36 @@ export async function loadStarted(topicIds: string[]): Promise<CardRow[]> {
 /** Tus respuestas de los últimos `days` días, con el tema de cada tarjeta. */
 export async function listReviewsSince(days: number): Promise<import('./stats').ReviewLog[]> {
   const since = new Date(startOfToday().getTime() - (days - 1) * 86_400_000).toISOString();
-  const rows = check(await sb().from('study_reviews').select('rating, state, reviewed_at, duration_ms, study_cards(topic_id)')
-    .gte('reviewed_at', since).order('reviewed_at').limit(50000)) as unknown as { rating: number; state: number; reviewed_at: string; duration_ms: number | null; study_cards: { topic_id: string } | null }[];
+  const rows = check(await paged(() => sb().from('study_reviews').select('rating, state, reviewed_at, duration_ms, study_cards(topic_id)')
+    .gte('reviewed_at', since).order('reviewed_at').order('id'))) as unknown as { rating: number; state: number; reviewed_at: string; duration_ms: number | null; study_cards: { topic_id: string } | null }[];
   return rows.map(({ study_cards, ...r }) => ({ ...r, topic_id: study_cards?.topic_id ?? null }));
 }
 
 /** Lo justo de cada tarjeta para las estadísticas (sin pregunta ni respuesta). */
 export async function listCardStats(): Promise<import('./stats').CardStat[]> {
-  const rows = await selectCards((_c, extras) => sb().from('study_cards')
-    .select(`id, topic_id, state, due, stability, lapses${extras ? ', suspended' : ''}`).limit(50000));
+  const rows = await selectCards((_c, extras) => paged(() => sb().from('study_cards')
+    .select(`id, topic_id, state, due, stability, lapses${extras ? ', suspended' : ''}`).order('id')));
   return rows as unknown as import('./stats').CardStat[];
+}
+
+// ---------- Ajustes (07-ajuste-fsrs.sql) ----------
+export interface Settings { fsrs_params: number[] | null; params_reviews: number | null; optimized_at: string | null }
+/** Tus ajustes, o null si aún no hay fila (o aún no existe la tabla). */
+export async function getSettings(): Promise<Settings | null> {
+  const res = await sb().from('study_settings').select('fsrs_params, params_reviews, optimized_at').maybeSingle();
+  if (res.error) return null;
+  return res.data as Settings | null;
+}
+export async function saveFsrsParams(params: number[] | null, reviews: number | null) {
+  check(await sb().from('study_settings').upsert({ fsrs_params: params, params_reviews: reviews, optimized_at: params ? new Date().toISOString() : null, updated_at: new Date().toISOString() }));
+}
+/** Cuántas respuestas hay en tu historial. */
+export async function countReviews(): Promise<number> {
+  const res = await sb().from('study_reviews').select('id', { count: 'exact', head: true });
+  if (res.error) throw new Error(res.error.message);
+  return res.count ?? 0;
+}
+/** Todo tu historial (para el optimizador). */
+export async function listAllReviews(): Promise<import('./optimize').RawReview[]> {
+  return check(await paged(() => sb().from('study_reviews').select('card_id, rating, state, reviewed_at').order('reviewed_at').order('id'), 200_000)) as import('./optimize').RawReview[];
 }
