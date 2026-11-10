@@ -44,6 +44,11 @@ describe.each(['viejo.apkg', 'nuevo.apkg'])('leer %s', (file) => {
   });
   it('marca las suspendidas y conserva el progreso', () => {
     expect(cards.map((c) => c.suspended)).toEqual([false, false, false, false, true]);
+    // La inversa y su original son hermanas, igual que los dos huecos de la misma frase.
+    const keys = cards.map((c) => c.noteKey);
+    expect(keys[1]).toBe(keys[2]);
+    expect(keys[3]).toBe(keys[4]);
+    expect(new Set(keys).size).toBe(3);
     expect(cards[0].sched).toBeNull(); // nueva
     expect(cards[1].sched).toMatchObject({ state: 2, stability: 12.5, difficulty: 6.2, reps: 4, lapses: 1, scheduled_days: 10 });
     expect(cards[2].sched).toMatchObject({ state: 2, stability: 5, difficulty: 5 }); // sin FSRS: aproximación

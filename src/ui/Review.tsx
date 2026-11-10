@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { countNew, listAllTopics, listExamDates, listSubjects, loadDue, loadNew, loadStarted, newTopicsToday, saveReview } from '../study/api';
+import { countNew, hasCardExtras, listAllTopics, listExamDates, listSubjects, loadDue, loadNew, loadStarted, newTopicsToday, saveReview, undoReview } from '../study/api';
 import { examTopics, FINAL_DAYS, finalReview, HORIZON_DAYS, pacedNewPerDay, topicPriority, upcoming } from '../study/plan';
 import { routeToHash } from '../study/logic';
-import { answer, buildQueue, countsFor, GRADES, newRoom, previewIntervals, requeueIndex, sessionSummary } from '../study/srs';
+import { answer, buildQueue, countsFor, becomesLeech, GRADES, LEECH_LAPSES, newRoom, previewIntervals, requeueIndex, sessionSummary } from '../study/srs';
 import type { CardRow, ExamDate, Level, Subject, Topic } from '../study/types';
 import type { Grade } from 'ts-fsrs';
 import { sfx } from '../sfx';
@@ -96,6 +96,10 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
   const [error, setError] = useState<string | null>(null);
   const shownAt = useRef(Date.now());
   const startedAt = useRef(Date.now());
+  // Para deshacer: cómo estaban la cola y la tarjeta antes de cada respuesta.
+  const history = useRef<{ queue: CardRow[]; card: CardRow; reviewId: Promise<string | null> }[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [leech, setLeech] = useState<CardRow | null>(null);
 
   useEffect(() => {
     loadQueue(subjectId, topicIds)
@@ -110,14 +114,21 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
   const rate = useCallback((grade: Grade) => {
     if (!card || !queue || !revealed) return;
     const now = new Date();
-    const next = answer(card, grade, now, levelOf.current(card.topic_id));
+    const next: Partial<CardRow> & ReturnType<typeof answer> = answer(card, grade, now, levelOf.current(card.topic_id));
+    // Sanguijuela: al fallarla por 8.ª vez se aparta de los repasos (si ya existe la columna).
+    const becameLeech = grade === 1 && becomesLeech(next.lapses) && hasCardExtras();
+    if (becameLeech) next.suspended = true;
     const rest = queue.slice(1);
     // Si vuelve en pocos minutos (pasos de aprendizaje), se queda en esta sesión.
-    const at = requeueIndex(new Date(next.due), now, rest.length);
+    const at = becameLeech ? -1 : requeueIndex(new Date(next.due), now, rest.length);
     if (at >= 0) rest.splice(at, 0, { ...card, ...next });
-    saveReview(card.id, next, {
+    const reviewId = saveReview(card.id, next, {
       rating: grade, state: card.state, scheduled_days: next.scheduled_days, duration_ms: Math.min(Date.now() - shownAt.current, 600_000),
-    }).catch((e) => setError(`No se ha podido guardar una respuesta: ${friendly(e.message)}`));
+    }).catch((e) => { setError(`No se ha podido guardar una respuesta: ${friendly(e.message)}`); return null; });
+    history.current.push({ queue, card, reviewId });
+    if (history.current.length > 30) history.current.shift();
+    setCanUndo(true);
+    setLeech(becameLeech ? card : null);
     SOUND[grade]();
     if (rest.length === 0) setTimeout(() => sfx.reward(), 250);
     setRatings((r) => [...r, grade]);
@@ -126,7 +137,23 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
     shownAt.current = Date.now();
   }, [card, queue, revealed]);
 
-  // Teclado: espacio o Enter muestra la respuesta; 1-4 la puntúa.
+  /** Deshacer la última respuesta: la tarjeta vuelve a la pantalla y a como estaba en la base de datos. */
+  const undo = useCallback(async () => {
+    const last = history.current.pop();
+    if (!last) return;
+    setCanUndo(history.current.length > 0);
+    setQueue(last.queue);
+    setRatings((r) => r.slice(0, -1));
+    setRevealed(false);
+    setLeech(null);
+    shownAt.current = Date.now();
+    sfx.undo();
+    const id = await last.reviewId;
+    const { id: _id, topic_id: _t, front: _f, back: _b, created_at: _c, ...before } = last.card;
+    if (id) undoReview(last.card.id, { ...before, suspended: last.card.suspended ?? false }, id).catch((e) => setError(`No se ha podido deshacer: ${friendly(e.message)}`));
+  }, []);
+
+  // Teclado: espacio o Enter muestra la respuesta; 1-4 la puntúa; Z o Ctrl+Z deshace.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
@@ -134,12 +161,13 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
         e.preventDefault();
         if (!revealed) reveal(); else rate(3 as Grade);
       }
+      if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); return; }
       const g = GRADES.find((x) => x.key === e.key);
       if (g && revealed) rate(g.grade);
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
-  }, [reveal, rate, revealed]);
+  }, [reveal, rate, revealed, undo]);
 
   const back = subjectId
     ? routeToHash({ view: 'asignatura', subjectId, topicId: topicIds?.length === 1 ? topicIds[0] : undefined })
@@ -170,7 +198,11 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
             {s.again > 0 && <p className="muted">Fallaste {s.again}: volverán pronto, es normal. Así se fija la memoria.</p>}
           </>
         )}
-        <a className="button primary" href={back}><Icon name="left" /> Volver</a>
+        <div className="row">
+          <a className="button primary" href={back}><Icon name="left" /> Volver</a>
+          {canUndo && <button className="ghost" onClick={undo}><Icon name="undo" /> Deshacer la última</button>}
+        </div>
+        {leech && <LeechNote card={leech} onClose={() => setLeech(null)} />}
         {error && <p className="error">{error}</p>}
       </section>
     );
@@ -184,6 +216,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
     <section className="review">
       <nav className="crumbs">
         <a className="back-btn" href={back}><Icon name="left" size={16} /> Salir</a>
+        <button className="ghost small undo-btn" onClick={undo} disabled={!canUndo} title="Deshacer la última respuesta (Z)"><Icon name="undo" size={16} /> Deshacer</button>
         <span className="counts" title="Nuevas · Aprendiendo · Repaso">
           <span className="pill new">{c.nuevas}</span>
           <span className="pill learn">{c.aprendiendo}</span>
@@ -191,6 +224,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
         </span>
       </nav>
 
+      {leech && <LeechNote card={leech} onClose={() => setLeech(null)} />}
       <article className="flashcard" onClick={reveal}>
         {topic && <p className="eyebrow">{topic.title}{early.current.has(card.id) && <span className="pill learn early-pill">repaso final</span>}</p>}
         <Suspense fallback={<p>{card.front}</p>}>
@@ -214,6 +248,20 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
       )}
       {error && <p className="error">{error}</p>}
     </section>
+  );
+}
+
+/** Aviso al apartar una sanguijuela, con enlace para reescribirla. */
+function LeechNote({ card, onClose }: { card: CardRow; onClose: () => void }) {
+  return (
+    <div className="leech-note" role="status">
+      <span>🪱</span>
+      <p>
+        <strong>Has fallado esta tarjeta {LEECH_LAPSES} veces</strong> («{card.front.slice(0, 60)}{card.front.length > 60 ? '…' : ''}»). La he apartado:
+        repasarla más no sirve. Reescríbela más corta o divídela en dos, y vuelve a activarla desde su tema.
+      </p>
+      <button className="icon-btn" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={16} /></button>
+    </div>
   );
 }
 

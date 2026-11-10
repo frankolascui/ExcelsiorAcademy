@@ -114,8 +114,32 @@ export function buildQueue(cards: readonly CardRow[], now: Date, newDoneToday: n
     cards.filter((c) => c.state === State.New).sort((a, b) => a.created_at.localeCompare(b.created_at)),
     priority,
   ).slice(0, room);
-  return [...byPriority(due, priority), ...fresh];
+  return burySiblings([...byPriority(due, priority), ...fresh]);
 }
+
+/**
+ * Hermanas: tarjetas de la misma nota (los huecos de una frase, o una nota de Anki con inversa).
+ * Si salieran el mismo día, una te chivaría la respuesta de la otra. Solo se queda la primera;
+ * las demás esperan a otro día (Anki lo llama «enterrar»).
+ */
+export function burySiblings<T extends { note_key?: string | null }>(queue: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return queue.filter((c) => {
+    if (!c.note_key) return true;
+    if (seen.has(c.note_key)) return false;
+    seen.add(c.note_key);
+    return true;
+  });
+}
+
+/**
+ * Sanguijuela (leech, en Anki): una tarjeta que has fallado muchas veces. Repasarla más no sirve:
+ * suele estar mal planteada (demasiado larga, ambigua, dos ideas en una). Se aparta para que la reescribas.
+ */
+export const LEECH_LAPSES = 8;
+export const isLeech = (c: Pick<CardRow, 'lapses'>) => c.lapses >= LEECH_LAPSES;
+/** ¿Se aparta al fallarla ahora? A los 8 fallos y, si la reactivas, otra vez cada 4 fallos más (como Anki). */
+export const becomesLeech = (lapsesAfter: number) => lapsesAfter >= LEECH_LAPSES && (lapsesAfter - LEECH_LAPSES) % 4 === 0;
 
 /**
  * Si hay exámenes cerca, primero van los temas del examen más próximo (`priority`: tema → días que faltan),

@@ -82,7 +82,7 @@ export function ImportCards({ subjectId, topicId, existing, onClose, onDone }: {
           seen.add(k);
           rows.push({
             topic_id: perDeck ? topicOf.get(c.deckId)! : topicId,
-            front: c.front.slice(0, 4000), back: c.back.slice(0, 8000),
+            front: c.front.slice(0, 4000), back: c.back.slice(0, 8000), note_key: c.noteKey,
             ...(keepProgress && c.sched ? c.sched : {}),
           });
         }

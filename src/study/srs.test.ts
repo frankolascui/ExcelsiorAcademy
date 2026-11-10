@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rating, State, type Grade } from 'ts-fsrs';
 import { answer, buildQueue, countsFor, formatInterval, parseCardLines, previewIntervals, requeueIndex, dueLabel, sessionSummary, interleave, newRoom } from './srs';
-import { byPriority } from './srs';
+import { becomesLeech, burySiblings, byPriority, isLeech } from './srs';
 import type { CardRow } from './types';
 
 const now = new Date('2026-11-09T10:00:00Z');
@@ -116,6 +116,18 @@ describe('prioridad por examen', () => {
     const cs = [{ topic_id: 'otro', n: 1 }, { topic_id: 'a', n: 2 }, { topic_id: 'b', n: 3 }, { topic_id: 'a', n: 4 }, { topic_id: 'lejos', n: 5 }];
     const out = byPriority(cs, new Map([['a', 2], ['b', 2], ['lejos', 9]]));
     expect(out.map((c) => c.n)).toEqual([2, 3, 4, 5, 1]);
+  });
+});
+
+describe('hermanas y sanguijuelas', () => {
+  it('solo sale una tarjeta de cada nota en la misma sesión', () => {
+    const q = [{ id: 1, note_key: 'n1' }, { id: 2, note_key: null }, { id: 3, note_key: 'n1' }, { id: 4, note_key: 'n2' }, { id: 5 }];
+    expect(burySiblings(q).map((c) => c.id)).toEqual([1, 2, 4, 5]);
+  });
+  it('a partir de 8 fallos es una sanguijuela', () => {
+    expect(isLeech({ lapses: 7 })).toBe(false);
+    expect(isLeech({ lapses: 8 })).toBe(true);
+    expect([7, 8, 9, 11, 12, 16].map(becomesLeech)).toEqual([false, true, false, false, true, true]);
   });
 });
 });

@@ -9,6 +9,8 @@ import { decompress } from 'fzstd';
 import type { Database, SqlJsStatic } from 'sql.js';
 import { State } from 'ts-fsrs';
 import type { CardRow } from './types';
+import { clozeBack, clozeFront, isCloze } from './cloze';
+export { clozeBack, clozeFront, isCloze };
 
 /** Una tarjeta lista para guardar (sin tema todavía). */
 export interface ImportedCard {
@@ -16,6 +18,7 @@ export interface ImportedCard {
   front: string; // HTML de Anki, se pasa a Markdown después
   back: string;
   suspended: boolean;
+  noteKey: string; // las tarjetas de la misma nota de Anki son hermanas
   /** Progreso de Anki traducido a FSRS; null = la tarjeta entra como nueva. */
   sched: Omit<CardRow, 'id' | 'topic_id' | 'front' | 'back' | 'created_at'> | null;
 }
@@ -58,22 +61,7 @@ function deckNames(db: Database): Map<string, string> {
   return names;
 }
 
-// ---------- Huecos (cloze): {{c1::respuesta::pista}} ----------
-const CLOZE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g;
-
-export function isCloze(text: string): boolean {
-  return /\{\{c\d+::/.test(text);
-}
-
-/** Anverso del hueco n: ese hueco se tapa ([…] o la pista) y los demás se ven. */
-export function clozeFront(text: string, n: number): string {
-  return text.replace(CLOZE, (_m, num: string, ans: string, hint?: string) => (Number(num) === n ? `<b>[${hint ?? '…'}]</b>` : ans));
-}
-
-/** Reverso del hueco n: el texto completo con la respuesta de ese hueco en negrita. */
-export function clozeBack(text: string, n: number): string {
-  return text.replace(CLOZE, (_m, num: string, ans: string) => (Number(num) === n ? `<b>${ans}</b>` : ans));
-}
+// Los huecos (cloze) están en cloze.ts: los usa también el editor de tarjetas.
 
 // ---------- Progreso de Anki → FSRS ----------
 interface AnkiCard {
@@ -141,7 +129,7 @@ export function readApkg(db: Database, now = new Date()): ApkgResult {
       back = fields.slice(1).filter((f) => f.trim()).join('<br><br>');
     }
     const deckId = String(c.odid || c.did);
-    out.push({ deckId, front, back, suspended: c.queue === -1, sched: ankiSchedule(c, crt, now) });
+    out.push({ deckId, front, back, suspended: c.queue === -1, noteKey: `anki:${c.nid}`, sched: ankiSchedule(c, crt, now) });
   }
 
   const counts = new Map<string, number>();

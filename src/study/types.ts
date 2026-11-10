@@ -44,6 +44,8 @@ export interface CardRow {
   state: 0 | 1 | 2 | 3; // nueva, aprendiendo, repaso, reaprendiendo
   last_review: string | null;
   created_at: string;
+  suspended?: boolean; // apartada: no sale en los repasos (06-repaso.sql)
+  note_key?: string | null; // tarjetas hermanas comparten esta clave
 }
 
 /** Un simulacro (supabase/04-simulacros.sql). */
