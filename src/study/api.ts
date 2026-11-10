@@ -70,24 +70,49 @@ export async function savePositions(table: 'study_subjects' | 'study_topics' | '
 }
 
 // ---------- Flashcards ----------
-const CARD_COLS = 'id, topic_id, front, back, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, reps, lapses, state, last_review, created_at';
+const BASE_CARD_COLS = 'id, topic_id, front, back, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, reps, lapses, state, last_review, created_at';
+// Columnas de 06-repaso.sql. Si aún no lo has ejecutado, la web sigue funcionando sin ellas (sin apartar ni hermanas).
+let phaseA = true;
+export const hasCardExtras = () => phaseA;
+const missingExtras = (msg: string) => /suspended|note_key/.test(msg);
+
+/** Pide tarjetas con las columnas nuevas; si la tabla aún no las tiene, repite sin ellas. */
+async function selectCards(build: (cols: string, extras: boolean) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<CardRow[]> {
+  let res = await build(phaseA ? `${BASE_CARD_COLS}, suspended, note_key` : BASE_CARD_COLS, phaseA);
+  if (res.error && phaseA && missingExtras(res.error.message)) {
+    phaseA = false;
+    res = await build(BASE_CARD_COLS, false);
+  }
+  return (check(res) as CardRow[]).map((c) => ({ suspended: false, note_key: null, ...c }));
+}
 
 export async function listAllTopics(): Promise<Topic[]> {
   return check(await sb().from('study_topics').select(TOPIC_COLS));
 }
 export async function listCards(topicId: string): Promise<CardRow[]> {
-  return check(await sb().from('study_cards').select(CARD_COLS).eq('topic_id', topicId).order('created_at'));
+  return selectCards((cols) => sb().from('study_cards').select(cols).eq('topic_id', topicId).order('created_at'));
 }
 export type NewCard = { topic_id: string; front: string; back: string } & Partial<Omit<CardRow, 'id' | 'topic_id' | 'front' | 'back' | 'created_at'>>;
 /** Crea tarjetas en tandas de 500 (un mazo grande puede tener miles). `onProgress` recibe cuántas van. */
 export async function createCards(cards: NewCard[], onProgress?: (done: number) => void): Promise<void> {
   for (let i = 0; i < cards.length; i += 500) {
     // defaultToNull: false → si a una tarjeta le falta una columna (p. ej. las nuevas no traen «due»), se usa el valor por defecto de la tabla.
-    check(await sb().from('study_cards').insert(cards.slice(i, i + 500), { defaultToNull: false }));
+    const batch = phaseA ? cards.slice(i, i + 500) : cards.slice(i, i + 500).map(stripExtras);
+    const res = await sb().from('study_cards').insert(batch, { defaultToNull: false });
+    if (res.error && phaseA && missingExtras(res.error.message)) {
+      phaseA = false;
+      check(await sb().from('study_cards').insert(batch.map(stripExtras), { defaultToNull: false }));
+    } else check(res);
     onProgress?.(Math.min(i + 500, cards.length));
   }
 }
+const stripExtras = <T extends object>(c: T) => { const { suspended: _s, note_key: _n, ...rest } = c as T & { suspended?: unknown; note_key?: unknown }; return rest; };
+
 export async function updateCard(id: string, patch: Partial<Omit<CardRow, 'id' | 'created_at'>>) {
+  if (!phaseA) {
+    if ('suspended' in patch && patch.suspended) throw new Error('Para apartar tarjetas, ejecuta antes supabase/06-repaso.sql en el SQL Editor de Supabase.');
+    patch = stripExtras(patch);
+  }
   check(await sb().from('study_cards').update(patch).eq('id', id));
 }
 export async function deleteCard(id: string) {
@@ -109,26 +134,41 @@ export async function newTopicsToday(): Promise<string[]> {
 
 /** Tarjetas ya empezadas que tocan ahora. topicIds = null → de todas tus asignaturas. */
 export async function loadDue(topicIds: string[] | null, now = new Date()): Promise<CardRow[]> {
-  let q = sb().from('study_cards').select(CARD_COLS).neq('state', 0).lte('due', now.toISOString()).order('due').limit(1000);
-  if (topicIds) q = q.in('topic_id', topicIds);
-  return check(await q);
+  return selectCards((cols, extras) => {
+    let q = sb().from('study_cards').select(cols).neq('state', 0).lte('due', now.toISOString()).order('due').limit(1000);
+    if (extras) q = q.eq('suspended', false);
+    if (topicIds) q = q.in('topic_id', topicIds);
+    return q;
+  });
 }
 
 /** Las `limit` tarjetas nuevas más antiguas de esos temas. */
 export async function loadNew(topicIds: string[], limit: number): Promise<CardRow[]> {
   if (limit <= 0 || topicIds.length === 0) return [];
-  return check(await sb().from('study_cards').select(CARD_COLS).eq('state', 0).in('topic_id', topicIds).order('created_at').limit(limit));
+  return selectCards((cols, extras) => {
+    const q = sb().from('study_cards').select(cols).eq('state', 0).in('topic_id', topicIds);
+    return (extras ? q.eq('suspended', false) : q).order('created_at').limit(limit);
+  });
 }
 
-/** Guarda una respuesta: el nuevo estado de la tarjeta y una línea en el historial. */
+/** Guarda una respuesta: el nuevo estado de la tarjeta y una línea en el historial. Devuelve el id de esa línea (para deshacer). */
 export async function saveReview(
   cardId: string,
   update: Partial<CardRow>,
   log: { rating: number; state: number; scheduled_days: number; duration_ms: number },
-) {
+): Promise<string> {
+  const [, review] = await Promise.all([
+    updateCard(cardId, update),
+    sb().from('study_reviews').insert({ card_id: cardId, ...log }).select('id').single().then(check) as Promise<{ id: string }>,
+  ]);
+  return review.id;
+}
+
+/** Deshacer: la tarjeta vuelve a como estaba y se borra la línea del historial. */
+export async function undoReview(cardId: string, before: Partial<CardRow>, reviewId: string) {
   await Promise.all([
-    sb().from('study_cards').update(update).eq('id', cardId).then(check),
-    sb().from('study_reviews').insert({ card_id: cardId, ...log }).then(check),
+    updateCard(cardId, before),
+    sb().from('study_reviews').delete().eq('id', reviewId).then(check),
   ]);
 }
 
@@ -171,7 +211,10 @@ export async function deleteExamDate(id: string) {
 export async function countNew(topicIds: string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   if (!topicIds.length) return out;
-  const rows = check(await sb().from('study_cards').select('topic_id').eq('state', 0).in('topic_id', topicIds).limit(20000)) as { topic_id: string }[];
+  const rows = (await selectCards((_c, extras) => {
+    const q = sb().from('study_cards').select('topic_id').eq('state', 0).in('topic_id', topicIds);
+    return (extras ? q.eq('suspended', false) : q).limit(20000);
+  })) as unknown as { topic_id: string }[];
   for (const r of rows) out.set(r.topic_id, (out.get(r.topic_id) ?? 0) + 1);
   return out;
 }
@@ -179,5 +222,8 @@ export async function countNew(topicIds: string[]): Promise<Map<string, number>>
 /** Tarjetas ya empezadas de esos temas (para el repaso final antes de un examen). */
 export async function loadStarted(topicIds: string[]): Promise<CardRow[]> {
   if (!topicIds.length) return [];
-  return check(await sb().from('study_cards').select(CARD_COLS).neq('state', 0).in('topic_id', topicIds).limit(3000));
+  return selectCards((cols, extras) => {
+    const q = sb().from('study_cards').select(cols).neq('state', 0).in('topic_id', topicIds);
+    return (extras ? q.eq('suspended', false) : q).limit(3000);
+  });
 }

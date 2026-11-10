@@ -653,3 +653,16 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
   .plan li { grid-template-columns: 1fr; gap: 4px; }
   .today-exams .muted { display: none; }
 }
+
+/* ---------- Repaso diario (paso 10) ---------- */
+.undo-btn { margin-left: auto; }
+.review .crumbs .counts { margin-left: 8px; }
+.pill.off { background: var(--surface-2); color: var(--muted); border: 1px dashed var(--line); }
+.pill.leech { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.card-row.off .card-text { opacity: 0.5; }
+.leech-note {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--warn) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+}
+.leech-note > span { font-size: 22px; line-height: 1; }
+.leech-note p { margin: 0; flex: 1; font-size: 15px; }

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createCards, deleteCard, listCards, updateCard } from '../study/api';
 import { routeToHash } from '../study/logic';
-import { dueLabel } from '../study/srs';
+import { dueLabel, isLeech } from '../study/srs';
+import { clozeCards, isCloze } from '../study/cloze';
 import { plainPreview } from '../study/format';
 import type { CardRow } from '../study/types';
 import { sfx } from '../sfx';
@@ -30,10 +31,14 @@ export function CardsPanel({ subjectId, topicId, onTopicsChanged }: { subjectId:
   function add(e?: React.FormEvent) {
     e?.preventDefault();
     if (!front.trim()) return;
-    const card = { topic_id: topicId, front: front.trim(), back: back.trim() };
+    // Con huecos {{c1::…}} se crea una tarjeta por hueco, todas hermanas (misma note_key).
+    const key = `cloze:${crypto.randomUUID()}`;
+    const rows = isCloze(front)
+      ? clozeCards(front.trim(), back).map((c) => ({ topic_id: topicId, ...c, note_key: key }))
+      : [{ topic_id: topicId, front: front.trim(), back: back.trim() }];
     setFront(''); setBack('');
     frontRef.current?.focus(); // así puedes escribir la siguiente sin tocar el ratón
-    act(() => createCards([card]), sfx.place);
+    act(() => createCards(rows), sfx.place);
   }
 
   // Ctrl+Enter (o Cmd+Enter) añade la tarjeta desde cualquiera de los dos cuadros.
@@ -41,14 +46,18 @@ export function CardsPanel({ subjectId, topicId, onTopicsChanged }: { subjectId:
 
   if (!cards) return <p className="muted">{error ?? 'Cargando tarjetas…'}</p>;
   const now = new Date();
-  const dueNow = cards.filter((c) => c.state !== 0 && new Date(c.due) <= now).length;
-  const fresh = cards.filter((c) => c.state === 0).length;
+  const active = cards.filter((c) => !c.suspended);
+  const dueNow = active.filter((c) => c.state !== 0 && new Date(c.due) <= now).length;
+  const fresh = active.filter((c) => c.state === 0).length;
+  const apartadas = cards.length - active.length;
+  const clozeCount = isCloze(front) ? clozeCards(front).length : 0;
 
   return (
     <div className="stack">
       <div className="review-cta">
         <div>
           <strong>{cards.length}</strong> tarjetas · <span className="pill due">{dueNow} tocan</span> <span className="pill new">{fresh} nuevas</span>
+          {apartadas > 0 && <> <span className="pill off">{apartadas} apartadas</span></>}
         </div>
         <div className="row">
           <button className="ghost" onClick={() => { setImporting(true); sfx.open(); }}><Icon name="download" /> Importar</button>
@@ -68,11 +77,11 @@ export function CardsPanel({ subjectId, topicId, onTopicsChanged }: { subjectId:
       )}
 
       <form className="card-form composer" onSubmit={add}>
-        <textarea ref={frontRef} placeholder="Escribe la pregunta…" value={front} onChange={(e) => setFront(e.target.value)} onKeyDown={ctrlEnter} rows={2} maxLength={4000} />
-        <textarea placeholder="…y la respuesta" value={back} onChange={(e) => setBack(e.target.value)} onKeyDown={ctrlEnter} rows={2} maxLength={8000} />
+        <textarea ref={frontRef} placeholder="Escribe la pregunta… o una frase con huecos: La capital de Francia es {{c1::París}}" value={front} onChange={(e) => setFront(e.target.value)} onKeyDown={ctrlEnter} rows={2} maxLength={4000} />
+        <textarea placeholder={clozeCount ? '…nota extra para el reverso (opcional)' : '…y la respuesta'} value={back} onChange={(e) => setBack(e.target.value)} onKeyDown={ctrlEnter} rows={2} maxLength={8000} />
         <div className="row card-form-foot">
-          <span className="muted small">Ctrl+Enter para añadir · admite Markdown y fórmulas</span>
-          <button className="primary" disabled={!front.trim()}><Icon name="plus" /> Añadir</button>
+          <span className="muted small">{clozeCount ? `Huecos: se crearán ${clozeCount} ${clozeCount === 1 ? 'tarjeta' : 'tarjetas hermanas'} (sale una al día)` : 'Ctrl+Enter para añadir · {{c1::…}} para huecos · Markdown y fórmulas'}</span>
+          <button className="primary" disabled={!front.trim()}><Icon name="plus" /> {clozeCount > 1 ? `Añadir ${clozeCount}` : 'Añadir'}</button>
         </div>
       </form>
 
@@ -85,14 +94,18 @@ export function CardsPanel({ subjectId, topicId, onTopicsChanged }: { subjectId:
               act(() => updateCard(c.id, { front: f, back: b }), sfx.saved);
             }} />
           ) : (
-            <li key={c.id} className="card-row" onClick={() => { sfx.tick(); setEditing(c.id); }} title="Pulsa para editar">
+            <li key={c.id} className={c.suspended ? 'card-row off' : 'card-row'} onClick={() => { sfx.tick(); setEditing(c.id); }} title="Pulsa para editar">
               <div className="card-text">
                 <span className="card-front">{plainPreview(c.front)}</span>
                 <span className="card-back">{plainPreview(c.back)}</span>
               </div>
-              <span className={`pill s${c.state}`}>{dueLabel(c, now)}</span>
+              {isLeech(c) && <span className="pill leech" title={`Fallada ${c.lapses} veces: reescríbela más simple`}>🪱 {c.lapses} fallos</span>}
+              <span className={c.suspended ? 'pill off' : `pill s${c.state}`}>{c.suspended ? 'apartada' : dueLabel(c, now)}</span>
               <Menu items={[
                 { icon: 'edit', label: 'Editar', onSelect: () => setEditing(c.id) },
+                c.suspended
+                  ? { icon: 'play', label: 'Volver a repasar', onSelect: () => act(() => updateCard(c.id, { suspended: false }), sfx.check) }
+                  : { icon: 'eye', label: 'Apartar (no repasar)', onSelect: () => act(() => updateCard(c.id, { suspended: true }), sfx.uncheck) },
                 { icon: 'trash', label: 'Borrar', danger: true, onSelect: async () => { if (await askConfirm({ title: '¿Borrar esta tarjeta?', message: 'Se borra también su historial de repasos.', confirmLabel: 'Borrar tarjeta', danger: true })) act(() => deleteCard(c.id), sfx.remove); } },
               ]} />
             </li>
@@ -124,7 +137,9 @@ function CardEditor({ card, onSave, onCancel }: { card: CardRow; onSave: (front:
 
 /** Si aún no se ha ejecutado 02-flashcards.sql, la base de datos no conoce la tabla. */
 export function friendly(msg: string): string {
-  return /study_cards|study_reviews/.test(msg) && /(does not exist|schema cache|not find)/i.test(msg)
+  return /suspended|note_key/.test(msg) && /(does not exist|schema cache|not find)/i.test(msg)
+    ? 'Falta ejecutar supabase/06-repaso.sql en el SQL Editor de Supabase.'
+    : /study_cards|study_reviews/.test(msg) && /(does not exist|schema cache|not find)/i.test(msg)
     ? 'Falta crear las tablas de tarjetas: ejecuta supabase/02-flashcards.sql en el SQL Editor de Supabase.'
     : msg;
 }
