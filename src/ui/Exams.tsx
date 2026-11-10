@@ -32,6 +32,7 @@ export function ExamsPanel({ subjectId, topics }: { subjectId: string; topics: T
     <div className="stack">
       <header className="topic-head">
         <h2>Simulacros</h2>
+        <button className="ghost" onClick={() => { setImporting(true); sfx.open(); }}><Icon name="download" /> Importar simulacro</button>
       </header>
 
       {trend.length > 0 && (
@@ -83,10 +84,6 @@ export function ExamsPanel({ subjectId, topics }: { subjectId: string; topics: T
           })}
         </ul>
       )}
-
-      <div className="row">
-        <button className="primary" onClick={() => { setImporting(true); sfx.open(); }}><Icon name="download" /> Importar simulacro</button>
-      </div>
 
       {importing && (
         <ImportExam subjectId={subjectId} topics={topics} onClose={() => setImporting(false)}

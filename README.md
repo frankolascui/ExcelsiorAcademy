@@ -12,6 +12,7 @@ El SQL de cada paso está en [supabase/](supabase/). Se ejecuta una vez en *Supa
 2. `02-flashcards.sql`: tarjetas y su historial de repasos (paso 4).
 3. `03-niveles.sql`: nivel de exigencia por asignatura (paso 6).
 4. `04-simulacros.sql`: simulacros con tus respuestas, la corrección y la nota (paso 8).
+5. `05-fechas-examen.sql`: fechas de examen para el plan día a día (paso 9).
 
 ## Probar en GitHub Pages (gratis)
 

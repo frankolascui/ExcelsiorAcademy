@@ -10,6 +10,7 @@ import { sfx } from '../sfx';
 import { askConfirm, askText } from './Dialog';
 import { CardsPanel } from './CardsPanel';
 import { ExamsPanel } from './Exams';
+import { ExamDatesPanel } from './ExamDates';
 import { Icon } from './Icon';
 import { DropZone, Menu, Modal } from './Kit';
 import { LEVELS } from '../study/srs';
@@ -80,13 +81,16 @@ export function Binder({ subjectId, topicId, section }: { subjectId: string; top
           </form>
           {sorted.length > 1 && <MixReview subjectId={subjectId} topics={sorted} />}
           <a className={section ? 'exams-tab active' : 'exams-tab'} href={routeToHash({ view: 'simulacros', subjectId })} onClick={() => !section && sfx.page()}>
-            <Icon name="exam" size={18} /> Simulacros
+            <Icon name="exam" size={18} /> Exámenes y simulacros
           </a>
         </aside>
 
         <div className="sheet-area">
           {section ? (
-            <ExamsPanel subjectId={subjectId} topics={sorted} />
+            <div className="stack exams-area">
+              <ExamDatesPanel subjectId={subjectId} topics={sorted} level={subject?.level} />
+              <ExamsPanel subjectId={subjectId} topics={sorted} />
+            </div>
           ) : current ? (
             <TopicPanel
               key={current.id}
