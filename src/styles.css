@@ -618,3 +618,38 @@ kbd { font: 500 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
   .steps li { flex-wrap: wrap; }
   .grade-badge.big { font-size: 26px; }
 }
+
+/* ---------- Fechas de examen y plan (paso 9) ---------- */
+.exams-area { gap: 30px; }
+.exam-date { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.exam-date[open] { border-color: color-mix(in srgb, var(--spine) 45%, var(--line)); }
+.exam-date > summary { list-style: none; display: flex; align-items: center; gap: 14px; padding: 12px 14px; cursor: pointer; }
+.exam-date > summary::-webkit-details-marker { display: none; }
+.exam-date-main { flex: 1; display: grid; min-width: 0; }
+.countdown {
+  flex: none; width: 54px; height: 54px; border-radius: 14px; display: grid; place-content: center; text-align: center; line-height: 1;
+  background: color-mix(in srgb, var(--spine) 18%, transparent); border: 1px solid color-mix(in srgb, var(--spine) 50%, transparent);
+}
+.countdown strong { font: 700 22px var(--display); }
+.countdown span { font: 500 10px var(--mono); color: var(--muted); text-transform: uppercase; }
+.countdown.hot { background: color-mix(in srgb, var(--danger) 18%, transparent); border-color: var(--danger); box-shadow: 0 0 16px color-mix(in srgb, var(--danger) 30%, transparent); }
+.countdown.small { width: 42px; height: 42px; border-radius: 11px; }
+.countdown.small strong { font-size: 17px; }
+.plan { list-style: none; margin: 0; padding: 0 14px 6px; display: grid; gap: 2px; }
+.plan li { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 8px 0; border-top: 1px dashed var(--line); align-items: baseline; }
+.plan-day { font: 500 12.5px var(--mono); color: var(--muted); text-transform: capitalize; }
+.plan li.today .plan-day { color: var(--fg); font-weight: 700; }
+.plan li.exam-day .plan-day, .plan li.exam-day .plan-item:first-child { color: var(--danger); font-weight: 700; }
+.plan-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-item { font-size: 14.5px; padding: 2px 10px; border-radius: 99px; background: var(--surface-2); }
+.plan-item.sim { background: color-mix(in srgb, var(--c1) 18%, transparent); color: var(--c1); font-weight: 700; }
+.plan-note { padding: 0 14px 12px; margin: 0; }
+.early-pill { margin-left: 8px; vertical-align: middle; }
+.today-exams { list-style: none; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.today-exams a { display: flex; align-items: center; gap: 12px; text-decoration: none; padding: 4px; border-radius: 12px; }
+.today-exams a:hover { background: var(--surface-2); }
+.today-exams a > span:nth-child(2) { flex: 1; }
+@media (max-width: 760px) {
+  .plan li { grid-template-columns: 1fr; gap: 4px; }
+  .today-exams .muted { display: none; }
+}

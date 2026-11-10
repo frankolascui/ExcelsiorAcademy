@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rating, State, type Grade } from 'ts-fsrs';
 import { answer, buildQueue, countsFor, formatInterval, parseCardLines, previewIntervals, requeueIndex, dueLabel, sessionSummary, interleave, newRoom } from './srs';
+import { byPriority } from './srs';
 import type { CardRow } from './types';
 
 const now = new Date('2026-11-09T10:00:00Z');
@@ -109,4 +110,12 @@ describe('niveles de exigencia', () => {
     const room = newRoom(new Map([['a', 'minimo'], ['b', 'detalle']]), new Map([['a', 4], ['b', 40]]));
     expect(room).toEqual(new Map([['a', 6], ['b', 0]]));
   });
+
+describe('prioridad por examen', () => {
+  it('primero los temas del examen más cercano, intercalados; luego el resto', () => {
+    const cs = [{ topic_id: 'otro', n: 1 }, { topic_id: 'a', n: 2 }, { topic_id: 'b', n: 3 }, { topic_id: 'a', n: 4 }, { topic_id: 'lejos', n: 5 }];
+    const out = byPriority(cs, new Map([['a', 2], ['b', 2], ['lejos', 9]]));
+    expect(out.map((c) => c.n)).toEqual([2, 3, 4, 5, 1]);
+  });
+});
 });

@@ -2,7 +2,7 @@
 // No hace falta enviar user_id: la base de datos lo pone sola (default auth.uid())
 // y las reglas por fila impiden tocar filas de otro alumno.
 import { sb } from '../cloud';
-import type { CardRow, Exam, Page, Subject, Topic } from './types';
+import type { CardRow, Exam, ExamDate, Page, Subject, Topic } from './types';
 
 function check<T>(res: { data: T | null; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -150,4 +150,34 @@ export async function updateExam(id: string, patch: Partial<Omit<Exam, 'id' | 's
 }
 export async function deleteExam(id: string) {
   check(await sb().from('study_exams').delete().eq('id', id));
+}
+
+// ---------- Fechas de examen ----------
+const DATE_COLS = 'id, subject_id, title, date, topic_ids, created_at';
+export async function listExamDates(): Promise<ExamDate[]> {
+  return check(await sb().from('study_exam_dates').select(DATE_COLS).order('date'));
+}
+export async function createExamDate(e: Pick<ExamDate, 'subject_id' | 'title' | 'date' | 'topic_ids'>) {
+  check(await sb().from('study_exam_dates').insert(e));
+}
+export async function updateExamDate(id: string, patch: Partial<Pick<ExamDate, 'title' | 'date' | 'topic_ids'>>) {
+  check(await sb().from('study_exam_dates').update(patch).eq('id', id));
+}
+export async function deleteExamDate(id: string) {
+  check(await sb().from('study_exam_dates').delete().eq('id', id));
+}
+
+/** Cuántas tarjetas nuevas (sin empezar) quedan en cada tema. */
+export async function countNew(topicIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!topicIds.length) return out;
+  const rows = check(await sb().from('study_cards').select('topic_id').eq('state', 0).in('topic_id', topicIds).limit(20000)) as { topic_id: string }[];
+  for (const r of rows) out.set(r.topic_id, (out.get(r.topic_id) ?? 0) + 1);
+  return out;
+}
+
+/** Tarjetas ya empezadas de esos temas (para el repaso final antes de un examen). */
+export async function loadStarted(topicIds: string[]): Promise<CardRow[]> {
+  if (!topicIds.length) return [];
+  return check(await sb().from('study_cards').select(CARD_COLS).neq('state', 0).in('topic_id', topicIds).limit(3000));
 }

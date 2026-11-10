@@ -1,8 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { listAllTopics, listSubjects, loadDue, loadNew, newTopicsToday, saveReview } from '../study/api';
+import { countNew, listAllTopics, listExamDates, listSubjects, loadDue, loadNew, loadStarted, newTopicsToday, saveReview } from '../study/api';
+import { examTopics, FINAL_DAYS, finalReview, HORIZON_DAYS, pacedNewPerDay, topicPriority, upcoming } from '../study/plan';
 import { routeToHash } from '../study/logic';
 import { answer, buildQueue, countsFor, GRADES, newRoom, previewIntervals, requeueIndex, sessionSummary } from '../study/srs';
-import type { CardRow, Level, Subject, Topic } from '../study/types';
+import type { CardRow, ExamDate, Level, Subject, Topic } from '../study/types';
 import type { Grade } from 'ts-fsrs';
 import { sfx } from '../sfx';
 import { friendly } from './CardsPanel';
@@ -13,28 +14,73 @@ const Markdown = lazy(() => import('./Markdown').then((m) => ({ default: m.Markd
 /**
  * Cola de hoy para un ámbito (unos temas, una asignatura o todo):
  * 1. las tarjetas que ya tocan;
- * 2. las nuevas de cada asignatura, hasta el límite de su nivel menos las que ya empezaste hoy;
- * 3. todo intercalado por temas (buildQueue).
+ * 2. si hay examen en los próximos 3 días, el «repaso final» de sus temas (plan.ts);
+ * 3. las nuevas de cada asignatura: el límite de su nivel o, si hay examen cerca y no te da tiempo,
+ *    las que hagan falta para verlas todas la víspera (pacedNewPerDay);
+ * 4. todo ordenado por cercanía del examen e intercalado por temas.
  */
 export async function loadQueue(subjectId?: string, topicIds?: string[]) {
-  const [topics, subjects, startedToday] = await Promise.all([listAllTopics(), listSubjects(), newTopicsToday()]);
+  const [topics, subjects, startedToday, exams] = await Promise.all([
+    listAllTopics(), listSubjects(), newTopicsToday(),
+    listExamDates().catch(() => [] as ExamDate[]), // si aún no existe la tabla, sin plan
+  ]);
+  const now = new Date();
   const subjectOf = new Map(topics.map((t) => [t.id, t.subject_id]));
   const levelOf = new Map<string, Level>(subjects.map((s) => [s.id, s.level ?? 'equilibrado']));
+  const topicsOfSubject = (sid: string) => topics.filter((t) => t.subject_id === sid).map((t) => t.id);
 
-  const inScope = topicIds?.length ? topicIds : subjectId ? topics.filter((t) => t.subject_id === subjectId).map((t) => t.id) : null;
+  const inScope = topicIds?.length ? topicIds : subjectId ? topicsOfSubject(subjectId) : null;
   const scopeTopics = inScope ?? topics.map((t) => t.id);
+  const scope = new Set(scopeTopics);
 
   const done = new Map<string, number>();
   for (const tid of startedToday) { const s = subjectOf.get(tid); if (s) done.set(s, (done.get(s) ?? 0) + 1); }
   const room = newRoom(levelOf, done);
 
-  const [due, ...fresh] = await Promise.all([
+  // Exámenes cercanos: prioridad por tema y examen más próximo de cada asignatura.
+  const priority = topicPriority(exams, topicsOfSubject, now);
+  const nextExam = new Map<string, ReturnType<typeof upcoming<ExamDate>>[number]>();
+  for (const e of upcoming(exams, now)) if (e.daysLeft <= HORIZON_DAYS && !nextExam.has(e.subject_id)) nextExam.set(e.subject_id, e);
+  const examTopicIds = [...priority.keys()].filter((t) => scope.has(t));
+  const newLeft = await countNew(examTopicIds).catch(() => new Map<string, number>());
+
+  const freshLoads: Promise<CardRow[]>[] = [];
+  for (const [sid, levelRoom] of room) {
+    const mine = scopeTopics.filter((t) => subjectOf.get(t) === sid);
+    if (!mine.length) continue;
+    const e = nextExam.get(sid);
+    if (!e) { freshLoads.push(loadNew(mine, levelRoom)); continue; }
+    const eTopics = new Set(examTopics(e, topicsOfSubject));
+    const left = mine.filter((t) => eTopics.has(t)).reduce((n, t) => n + (newLeft.get(t) ?? 0), 0);
+    const need = Math.max(levelRoom, pacedNewPerDay(left, e.daysLeft) - (done.get(sid) ?? 0));
+    freshLoads.push(loadNew(mine.filter((t) => eTopics.has(t)), need).then(async (examNew) => [
+      ...examNew,
+      ...(await loadNew(mine.filter((t) => !eTopics.has(t)), Math.max(0, levelRoom - examNew.length))),
+    ]));
+  }
+
+  // Repaso final de los exámenes de los próximos días.
+  const finals = [...nextExam.values()].filter((e) => e.daysLeft <= FINAL_DAYS);
+  const finalLoads = finals.map(async (e) => {
+    const ts = examTopics(e, topicsOfSubject).filter((t) => scope.has(t));
+    return finalReview(await loadStarted(ts), e.date, now, levelOf.get(e.subject_id) ?? 'equilibrado');
+  });
+
+  const [due, fresh, final] = await Promise.all([
     scopeTopics.length ? loadDue(inScope) : Promise.resolve([]),
-    ...[...room].map(([sid, n]) => loadNew(scopeTopics.filter((t) => subjectOf.get(t) === sid), n)),
+    Promise.all(freshLoads),
+    Promise.all(finalLoads),
   ]);
-  // El límite ya se ha aplicado al pedir las nuevas: aquí solo se ordena e intercala.
-  const queue = buildQueue([...due, ...fresh.flat()], new Date(), 0, Infinity);
-  return { queue, topics, levelOfTopic: (tid: string): Level => levelOf.get(subjectOf.get(tid) ?? '') ?? 'equilibrado' };
+  // Las del repaso final se tratan como si ya tocaran (due = ahora), sin repetir ninguna.
+  const seen = new Set(due.map((c) => c.id));
+  const early = final.flat().filter((c) => !seen.has(c.id) && seen.add(c.id)).map((c) => ({ ...c, due: now.toISOString() }));
+  // El límite de nuevas ya se ha aplicado al pedirlas: aquí solo se ordena e intercala.
+  const queue = buildQueue([...due, ...early, ...fresh.flat()], now, 0, Infinity, priority);
+  return {
+    queue, topics, subjects, exams: upcoming(exams, now),
+    earlyIds: new Set(early.map((c) => c.id)),
+    levelOfTopic: (tid: string): Level => levelOf.get(subjectOf.get(tid) ?? '') ?? 'equilibrado',
+  };
 }
 
 const SOUND: Record<number, () => void> = { 1: sfx.uncheck, 2: sfx.tick, 3: sfx.check, 4: sfx.confirm };
@@ -44,6 +90,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
   const [queue, setQueue] = useState<CardRow[] | null>(null);
   const [topics, setTopics] = useState<Map<string, Topic>>(new Map());
   const levelOf = useRef<(topicId: string) => Level>(() => 'equilibrado');
+  const early = useRef<Set<string>>(new Set());
   const [revealed, setRevealed] = useState(false);
   const [ratings, setRatings] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +99,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
 
   useEffect(() => {
     loadQueue(subjectId, topicIds)
-      .then(({ queue, topics, levelOfTopic }) => { levelOf.current = levelOfTopic; setQueue(queue); setTopics(new Map(topics.map((t) => [t.id, t]))); shownAt.current = Date.now(); })
+      .then(({ queue, topics, levelOfTopic, earlyIds }) => { levelOf.current = levelOfTopic; early.current = earlyIds; setQueue(queue); setTopics(new Map(topics.map((t) => [t.id, t]))); shownAt.current = Date.now(); })
       .catch((e) => setError(friendly(e.message)));
   }, [subjectId, topicIds?.join(',')]);
 
@@ -145,7 +192,7 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
       </nav>
 
       <article className="flashcard" onClick={reveal}>
-        {topic && <p className="eyebrow">{topic.title}</p>}
+        {topic && <p className="eyebrow">{topic.title}{early.current.has(card.id) && <span className="pill learn early-pill">repaso final</span>}</p>}
         <Suspense fallback={<p>{card.front}</p>}>
           <div className="fc-front"><Markdown text={card.front} /></div>
           {revealed && <><hr /><div className="fc-back"><Markdown text={card.back || '_(sin respuesta)_'} /></div></>}
@@ -172,17 +219,18 @@ export function Review({ subjectId, topicIds }: { subjectId?: string; topicIds?:
 
 /** Panel «Hoy» de la estantería: cuántas tarjetas tocan, en total y por asignatura. */
 export function TodayPanel() {
-  const [data, setData] = useState<{ total: ReturnType<typeof countsFor>; bySubject: { s: Subject; n: number }[] } | null>(null);
+  const [data, setData] = useState<{ total: ReturnType<typeof countsFor>; bySubject: { s: Subject; n: number }[]; exams: { e: ExamDate; daysLeft: number; s?: Subject }[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([loadQueue(), listSubjects()])
-      .then(([{ queue, topics }, subjects]) => {
+      .then(([{ queue, topics, exams }, subjects]) => {
         const subjectOf = new Map(topics.map((t) => [t.id, t.subject_id]));
         const bySubject = subjects
           .map((s) => ({ s, n: queue.filter((c) => subjectOf.get(c.topic_id) === s.id).length }))
           .filter((x) => x.n > 0);
-        setData({ total: countsFor(queue), bySubject });
+        const soon = exams.filter((e) => e.daysLeft <= 14).map((e) => ({ e, daysLeft: e.daysLeft, s: subjects.find((s) => s.id === e.subject_id) }));
+        setData({ total: countsFor(queue), bySubject, exams: soon });
       })
       .catch((e) => setError(friendly(e.message)));
   }, []);
@@ -207,6 +255,19 @@ export function TodayPanel() {
         </div>
         {sum > 0 && <a className="button primary" href={routeToHash({ view: 'repasar' })} onClick={() => sfx.open()}><Icon name="play" /> Repasar todo</a>}
       </div>
+      {data.exams.length > 0 && (
+        <ul className="today-exams">
+          {data.exams.map(({ e, daysLeft, s }) => (
+            <li key={e.id} style={{ '--spine': s?.color ?? 'var(--c2)' } as React.CSSProperties}>
+              <a href={routeToHash({ view: 'simulacros', subjectId: e.subject_id })} onClick={() => sfx.open()}>
+                <span className={daysLeft <= 3 ? 'countdown small hot' : 'countdown small'}><strong>{daysLeft}</strong><span>{daysLeft === 1 ? 'día' : 'días'}</span></span>
+                <span><strong>{s?.name ?? 'Examen'}</strong> · {e.title}</span>
+                <span className="muted small">{daysLeft <= 3 ? 'repaso final activo' : 'ver plan'}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
       {data.bySubject.length > 1 && (
         <ul className="today-list">
           {data.bySubject.map(({ s, n }) => (

@@ -62,3 +62,13 @@ export interface Exam {
   grade: number | null; // sobre 10
   created_at: string;
 }
+
+/** Un examen real con fecha (supabase/05-fechas-examen.sql). */
+export interface ExamDate {
+  id: string;
+  subject_id: string;
+  title: string;
+  date: string; // 'AAAA-MM-DD'
+  topic_ids: string[]; // vacío = todos los temas de la asignatura
+  created_at: string;
+}

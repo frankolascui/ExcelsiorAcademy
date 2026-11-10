@@ -105,15 +105,31 @@ export function formatInterval(ms: number): string {
  * 1. las tarjetas que ya tocan (due ≤ ahora) y no son nuevas, primero las más atrasadas;
  * 2. después, tarjetas nuevas hasta completar el límite diario (en el orden en que se crearon).
  */
-export function buildQueue(cards: readonly CardRow[], now: Date, newDoneToday: number, newPerDay = NEW_PER_DAY): CardRow[] {
+export function buildQueue(cards: readonly CardRow[], now: Date, newDoneToday: number, newPerDay = NEW_PER_DAY, priority?: ReadonlyMap<string, number>): CardRow[] {
   const due = cards
     .filter((c) => c.state !== State.New && new Date(c.due) <= now)
     .sort((a, b) => a.due.localeCompare(b.due));
   const room = Math.max(0, newPerDay - newDoneToday);
-  const fresh = interleave(
+  const fresh = byPriority(
     cards.filter((c) => c.state === State.New).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    priority,
   ).slice(0, room);
-  return [...interleave(due), ...fresh];
+  return [...byPriority(due, priority), ...fresh];
+}
+
+/**
+ * Si hay exámenes cerca, primero van los temas del examen más próximo (`priority`: tema → días que faltan),
+ * después los del siguiente, y al final el resto. Dentro de cada grupo se intercalan los temas.
+ */
+export function byPriority<T extends { topic_id: string }>(cards: readonly T[], priority?: ReadonlyMap<string, number>): T[] {
+  if (!priority?.size) return interleave(cards);
+  const groups = new Map<number, T[]>();
+  for (const c of cards) {
+    const k = priority.get(c.topic_id) ?? Infinity;
+    const g = groups.get(k);
+    if (g) g.push(c); else groups.set(k, [c]);
+  }
+  return [...groups.keys()].sort((a, b) => a - b).flatMap((k) => interleave(groups.get(k)!));
 }
 
 /**
