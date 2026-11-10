@@ -40,9 +40,12 @@ export function Shelf() {
 
   return (
     <section className="stack">
-      <div>
-        <p className="eyebrow">Tu archivo de apuntes</p>
-        <h1 className="section-title">Mi estantería</h1>
+      <div className="shelf-head">
+        <div>
+          <p className="eyebrow">Tu archivo de apuntes</p>
+          <h1 className="section-title">Mi estantería</h1>
+        </div>
+        {subjects.length > 0 && <a className="button" href={routeToHash({ view: 'estadisticas' })} onClick={() => sfx.open()}><Icon name="chart" /> Estadísticas</a>}
       </div>
       {subjects.length > 0 && <TodayPanel />}
       {subjects.length === 0 && <p className="empty-state">Todavía no tienes asignaturas. Crea la primera: cada una será una carpeta.</p>}

@@ -227,3 +227,19 @@ export async function loadStarted(topicIds: string[]): Promise<CardRow[]> {
     return (extras ? q.eq('suspended', false) : q).limit(3000);
   });
 }
+
+// ---------- Estadísticas ----------
+/** Tus respuestas de los últimos `days` días, con el tema de cada tarjeta. */
+export async function listReviewsSince(days: number): Promise<import('./stats').ReviewLog[]> {
+  const since = new Date(startOfToday().getTime() - (days - 1) * 86_400_000).toISOString();
+  const rows = check(await sb().from('study_reviews').select('rating, state, reviewed_at, duration_ms, study_cards(topic_id)')
+    .gte('reviewed_at', since).order('reviewed_at').limit(50000)) as unknown as { rating: number; state: number; reviewed_at: string; duration_ms: number | null; study_cards: { topic_id: string } | null }[];
+  return rows.map(({ study_cards, ...r }) => ({ ...r, topic_id: study_cards?.topic_id ?? null }));
+}
+
+/** Lo justo de cada tarjeta para las estadísticas (sin pregunta ni respuesta). */
+export async function listCardStats(): Promise<import('./stats').CardStat[]> {
+  const rows = await selectCards((_c, extras) => sb().from('study_cards')
+    .select(`id, topic_id, state, due, stability, lapses${extras ? ', suspended' : ''}`).limit(50000));
+  return rows as unknown as import('./stats').CardStat[];
+}
