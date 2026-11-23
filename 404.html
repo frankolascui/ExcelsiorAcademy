@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="robots" content="noindex">
+  <title>Excelsior Academy</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+  <style>
+    :root { --bg: #000; --surface: #0a0d14; --line: #1f2633; --fg: #fff; --muted: #8a93a8; --c1: #5eead4; --c2: #38bdf8; --c3: #2563eb;
+      --gold: color-mix(in srgb, var(--c1) 40%, #fff); --r: 12px; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg); color: var(--fg);
+      font: 17px/1.5 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif; }
+    main { width: min(520px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 28px 24px; display: grid; gap: 14px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, .6); }
+    .eyebrow { font: 500 12px 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--c1); }
+    h1 { font: 700 clamp(26px, 6vw, 34px)/1.1 'Alegreya SC', Georgia, serif; margin: 0; color: var(--gold); }
+    p { margin: 0; }
+    .hint { color: var(--muted); font-size: 15px; }
+    a.go { display: block; text-align: center; text-decoration: none; color: #fff; font-weight: 700; padding: 12px 16px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--c2), var(--c3)); box-shadow: 0 6px 20px color-mix(in srgb, var(--c2) 35%, transparent); }
+    a.go:hover { filter: brightness(1.08); }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="eyebrow">Excelsior Academy</span>
+    <h1>Academy se ha mudado</h1>
+    <p>Ahora vive dentro de <b>Excelsior RPG</b>, en Deep Work → Academy. Entra con el mismo email y tendrás tus asignaturas, apuntes, tarjetas, exámenes y estadísticas tal y como los dejaste: no hay que pasar nada.</p>
+    <a class="go" id="go" href="https://excelsiorapp.netlify.app/#academy">Ir a Academy en Excelsior RPG</a>
+    <p class="hint">Repasar allí cuenta como foco de estudio y da XP. Esta web ya no se actualiza.</p>
+  </main>
+  <script>
+    // Si quedaba el worker del optimizador, se da de baja (el nuevo coi-sw.js también lo hace solo).
+    navigator.serviceWorker?.getRegistrations?.().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+  </script>
+</body>
+</html>
